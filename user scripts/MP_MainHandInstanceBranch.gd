@@ -1,0 +1,2 @@
+class_name MP_MainHandInstance_Branch extends Node
+
