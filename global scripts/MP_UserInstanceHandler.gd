@@ -12,7 +12,6 @@ class_name MP_UserInstanceHandler extends Node
 
 var instance_dictionary = []
 var instance_dictionary_test = [] 
-var original_host_id = 0
 
 @export var instance_property_array : Array[Node]
 
@@ -22,16 +21,12 @@ func _ready():
 	GetRoot()
 	if (GlobalVariables.mp_debugging):
 		StartMainGame()
-	original_host_id = GlobalSteam.HOST_ID
 
 func Setup_ExitGameWithLobbyMembers():
 	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
 		Packet_ExitGameWithLobby()
 	else:
 		Packet_ExitGameWithLobby_Request()
-
-func ExitGameWithLobby():
-	intermediary.ExitGame()
 
 func Packet_ExitGameWithLobby():
 	if GlobalSteam.STEAM_ID != GlobalSteam.HOST_ID: return
@@ -53,7 +48,9 @@ func Packet_ExitGameWithLobby_Request():
 	}
 	packets.send_p2p_packet_directly_to_host(GlobalSteam.STEAM_ID, packet)
 
-var removing_instances = true
+func ExitGameWithLobby():
+	intermediary.ExitGame()
+
 var previous_member_steamid_array = []
 var current_member_steamid_array = []
 var instances_to_delete = []
@@ -85,19 +82,13 @@ func CheckLobbyMemberArray():
 	intermediary.ingame_lobby_ui.UpdateUserList()
 
 func RemoveInstancesFromGame(instances_to_delete_array : Array):
-	if !removing_instances: return
 	if instances_to_delete.size() == 0: print("instances to delete array is empty. returning"); return
 	print("removing instances from game with array: ", instances_to_delete_array)
 	for instance in instance_property_array:
 		for id in instances_to_delete_array:
 			if instance.user_id == id:
-				print("instance user id to disconnect: ", instance.user_id, " host id: ", GlobalSteam.HOST_ID)
-				for i in 3:
-					print("----------------------------")
-				if instance.user_id == original_host_id:
-					GlobalVariables.disband_lobby_after_exiting_main_scene = true
+				if instance.user_id == GlobalSteam.HOST_ID:
 					intermediary.ExitGame(tr("MP_CONSOLE EXIT HOST DISCONNECTED"))
-					return
 				instance.TransferInventoryToGlobalParent()
 				debug.SendConsoleMessage(tr("MP_UI PLAYER DISCONNECTED") % instance.user_name)
 				CheckToPassTurnAfterUserDisconnect(instance.socket_number)

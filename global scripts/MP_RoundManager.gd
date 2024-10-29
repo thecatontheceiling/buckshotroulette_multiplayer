@@ -388,9 +388,6 @@ func GenerateRandomRound():
 		4:
 			health_r1 = 3
 			health_r2 = 5
-		_:
-			health_r1 = 1
-			health_r2 = 1
 
 	var starting_health = randi_range(health_r1, health_r2)
 	var dict = {
@@ -443,8 +440,6 @@ func GetSelectedSequenceCopy(for_user_amount : int):
 			selected = game_state.MAIN_active_sequence_batch_array_copy_in_use_for_3
 		4:
 			selected = game_state.MAIN_active_sequence_batch_array_copy_in_use_for_4
-		_:
-			selected = game_state.MAIN_active_sequence_batch_array_copy_in_use_for_2
 	return selected
 
 func GetRandomItemGrabAmount():
@@ -460,9 +455,6 @@ func GetRandomItemGrabAmount():
 			item_r2 = 5
 		4:
 			item_r1 = 3
-			item_r2 = 4
-		_:
-			item_r1 = 2
 			item_r2 = 4
 	
 	var num_of_items_to_grab = randi_range(item_r1, item_r2)

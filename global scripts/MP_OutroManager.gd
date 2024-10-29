@@ -104,7 +104,6 @@ func MatchResultsFinished():
 	speaker_controller_resolve.FadeOut()
 	intermed.intermed_properties.viewblocker.FadeIn(3, -1.8)
 	await get_tree().create_timer(3.5, false).timeout
-	GlobalVariables.disband_lobby_after_exiting_main_scene = false
 	intermed.ExitGame()
 
 func SetupOutroLight():

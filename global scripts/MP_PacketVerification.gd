@@ -41,7 +41,6 @@ func PacketSort(dict : Dictionary):
 				"barrel_sawed_off": game_state.MAIN_barrel_sawed_off,
 				"sent_from_socket": dict.sent_from_socket,
 				"ending_turn_after_shot": game_state.CheckIfShooterEndingTurnAfterShot(dict.socket_to_shoot, dict.sent_from_socket, game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0], game_state.MAIN_barrel_sawed_off, game_state.MAIN_active_sequence_dict.sequence_in_shotgun.size() - 1),
-				"sequence_in_shotgun": game_state.MAIN_active_sequence_dict.sequence_in_shotgun,
 			}
 		"look at user request":
 			packet = {
@@ -57,11 +56,10 @@ func PacketSort(dict : Dictionary):
 			#debug here1
 			#var debug_properties = GetSocketProperties(dict.sent_from_socket)
 			#var temp = [3, 3, 2, 8, 5, 6, 8, 9]
-			#temp = [1, 2, 3, 4, 5, 6, 8, 9, 10]
 			#debug_properties.debug_index += 1
 			#if debug_properties.debug_index == temp.size(): debug_properties.debug_index = 0
 			#item_to_grab = temp[debug_properties.debug_index]
-			#debug here11
+			#debug here1
 			packet = {
 				"packet category": "MP_UserInstanceProperties",
 				"packet alias": "grab item",
