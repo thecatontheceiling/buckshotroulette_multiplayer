@@ -17,11 +17,9 @@ func SetViewblockerVis(visible : bool):
 
 var is_first = true
 func SendConsoleMessage(message : String):
-	return
-	if !GlobalVariables.mp_printing_to_console: return
 	if !is_first: console.append_text("\n")
 	is_first = false
-	console.append_text(message)
+	console.add_text(message)
 	await get_tree().create_timer(line_deletion_delay, false).timeout
 	console.remove_paragraph(0)
 	is_first = console.text == ""

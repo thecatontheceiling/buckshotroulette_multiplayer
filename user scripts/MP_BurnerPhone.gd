@@ -17,7 +17,7 @@ func GetBurnerPhoneString():
 	var final_string_p1 = "" #ex: THIRD SHELL ...
 	var final_string_p2 = "" #ex: ... BLANK.
 	var final_string = ""    #ex: FIRST SHELL ... (line break) ... BLANK.
-	if current_sequence.size() <= 2: final_string = "HOW UNFORTUNATE ..."
+	if current_sequence.size() <= 2: final_string = tr("UNFORTUNATE")
 	else:
 		var randindex = randi_range(2, current_sequence.size() - 1)
 		var verbal_index = randindex; verbal_index += 1

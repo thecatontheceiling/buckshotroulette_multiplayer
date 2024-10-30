@@ -68,6 +68,7 @@ func PlaySound_CorpseFall():
 func UserDeath_Revive(reviving_from_spectator : bool = false):
 	if properties.is_active: DefibRevive()
 	await get_tree().create_timer(2.6, false).timeout
+	StopHandBobbing()
 	animator_death_thirdperson.play("user return from death thirdperson")
 	if !properties.is_active: speaker_revive.play()
 	nametag.visible = true
@@ -77,6 +78,12 @@ func UserDeath_Revive(reviving_from_spectator : bool = false):
 	user_returned_from_death = true
 	user_reviving = false
 	properties.is_spectating = false
+
+func StopHandBobbing():
+	if !properties.is_active:
+		properties.PauseOscillation()
+		await get_tree().create_timer(1.9, false).timeout
+		properties.ResumeOscillation()
 
 func DefibRevive():
 	if properties.is_spectating:

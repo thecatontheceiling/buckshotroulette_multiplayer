@@ -32,7 +32,7 @@ var enabled = false
 
 func _unhandled_input(event):
 	if GlobalVariables.mp_debug_keys_enabled:
-		if event.is_action_pressed("debug_'"):
+		if event.is_action_pressed("debug_insert"):
 			enabled = !enabled
 			current = enabled
 		if event.is_action_pressed("debug_q") && toggling_ortho:

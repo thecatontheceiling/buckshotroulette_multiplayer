@@ -5,7 +5,7 @@ class_name MP_ShellLoader extends Node
 
 var spawned_instance_array = []
 
-func SpawnShells(): #i believe this does nothing
+func SpawnShells():
 	var sequence = game_state.MAIN_active_sequence_dict.sequence_visible
 	for shell in shell_instance_array:
 		shell.visible = false

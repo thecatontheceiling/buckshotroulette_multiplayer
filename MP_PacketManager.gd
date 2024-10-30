@@ -75,6 +75,7 @@ func send_p2p_packet(target: int, packet_data: Dictionary) -> void:
 	else:
 		Steam.sendP2PPacket(target, this_data, send_type, channel)
 
+var temp_id = 0
 func read_p2p_packet() -> void:
 	var packet_size: int = Steam.getAvailableP2PPacketSize(0)
 	
@@ -114,6 +115,7 @@ func read_p2p_packet() -> void:
 		if GlobalVariables.printing_packets: 
 			print("received packet: ", readable_data)
 		
+		temp_id = packet_sender
 		PipeData(readable_data)
 
 @export var lobbyController : LobbyController
@@ -153,6 +155,10 @@ func PipeData(dict : Dictionary):
 			lobby.ReceivePacket_KickPlayer(dict)
 		"update match info ui":
 			lobby_ui.UpdateMatchInformation(dict)
+		"check version":
+			lobby.ReceivePacket_VersionCheck(dict, temp_id)
+		"version response":
+			lobby.ReceivePacket_VersionResponse(dict)
 
 func _on_p2p_session_request(remote_id: int) -> void:
 	# Get the requester's name

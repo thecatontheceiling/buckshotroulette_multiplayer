@@ -10,10 +10,6 @@ var lobby_initialized
 func _unhandled_input(event):
 	if event.is_action_pressed("1") && GlobalVariables.mp_debugging:
 		StartGameRoutine_Host()
-	if event.is_action_pressed("2") && GlobalVariables.mp_debugging:
-		GlobalSteam.STEAM_ID = 2
-	if event.is_action_pressed("3") && GlobalVariables.mp_debugging:
-		GlobalSteam.STEAM_ID = 76561198358844980
 
 var fs = false
 func StartGame():
@@ -22,6 +18,7 @@ func StartGame():
 			if (GlobalSteam.LOBBY_MEMBERS.size() > 1):
 				if (GlobalSteam.HOST_ID == GlobalSteam.STEAM_ID):
 					print("starting game")
+					Steam.setLobbyJoinable(GlobalSteam.LOBBY_ID, false)
 					StartGameRoutine_Host()
 					fs = true
 					return

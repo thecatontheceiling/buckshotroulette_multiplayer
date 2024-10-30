@@ -19,7 +19,7 @@ class_name MP_ShellBranch extends Node
 @export var mat_inspecting_unknown_colorblind : StandardMaterial3D
 
 func SetState(type : String):
-	var colorblind = false
+	var colorblind = GlobalVariables.colorblind
 	var mat : StandardMaterial3D
 	if !colorblind:
 		match type:
@@ -34,7 +34,7 @@ func SetState(type : String):
 	shell.set_surface_override_material(1, mat)
 
 func SetState_Inspecting(type : String):
-	var colorblind = false
+	var colorblind = GlobalVariables.colorblind
 	var mat : StandardMaterial3D
 	if !colorblind:
 		match type:

@@ -17,6 +17,13 @@ var active_separate_lerp : MP_SeparateLerp
 var active_id : int
 var active_item_has_secondary_interaction : bool
 
+var debug_index = -1
+func _unhandled_input(event):
+	if GlobalVariables.mp_debugging:
+		if event.is_action_pressed("8") && properties.socket_number == properties.intermediary.game_state.MAIN_active_current_turn_socket:
+			debug_index += 1
+			InteractWithItemRequest(properties.user_inventory_instance_array[debug_index])
+
 func InteractWithItemRequest(item_object_parent : Node3D, stealing_item : bool = false):
 	properties.permissions.SetMainPermission(false)
 	GetItemVariables(item_object_parent)

@@ -26,12 +26,14 @@ func StopSpeakersAfterFinalShot():
 func LoadTrack(track_index : int, setting_cutoff_to_max : bool, fading_in : bool):
 	active_track_index = track_index
 	speakerController_music.SnapVolume(false)
-	var currentTrack = trackArray[track_index].audiofile
-	filter.lowPassDefaultValue = trackArray[track_index].defaultLowPassHz
+	var currentTrack = null
+	if track_index <= 2:
+		currentTrack = trackArray[track_index].audiofile
+		filter.lowPassDefaultValue = trackArray[track_index].defaultLowPassHz
 	filter.effect_lowPass.cutoff_hz = filter.lowPassDefaultValue
 	filter.moving = false
 	if setting_cutoff_to_max: filter.BeginSnap(20000)
-	speaker_music.stream = currentTrack
+	if currentTrack != null: speaker_music.stream = currentTrack
 	speaker_music.play()
 	if fading_in:
 		speakerController_music.FadeIn()

@@ -203,6 +203,7 @@ func Shoot(hoverpan_intbranch : MP_InteractionBranch, overriding_intbranch_with_
 	SetTargetControllerPrompts(false)
 
 func ReceivePacket_Shoot(packet_dictionary : Dictionary = {}):
+	intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = packet_dictionary.sequence_in_shotgun
 	properties.is_on_secondary_interaction = false
 	properties.intermediary.game_state.StopTimeoutForSocket("shotgun target selection", properties.socket_number)
 	active_shooter_socket_self = packet_dictionary.shooter_socket_self

@@ -4,6 +4,7 @@ enum lobby_status {Private, Friends, Public, Invisible}
 enum search_distance {Close, Default, Far, Worldwide}
 
 @export var is_menu : bool = false
+@export var is_lobby : bool = false
 @export var connecting_join_requested : bool = true
 @export var connecting_lobby_chat_update : bool = true
 @export var connecting_lobby_created : bool = true
@@ -43,8 +44,16 @@ func _ready():
 	if connecting_persona_state_change: Steam.persona_state_change.connect(_on_persona_change)
 	
 	CheckCommandLine()
-	ShowForwardedMessage()
+	ShowPopupWindowOnEnter()
 	if get_lobby_members_on_ready: get_lobby_members()
+
+var viewing_popup = false
+func ShowPopupWindowOnEnter():
+	await get_tree().create_timer(1.75, false).timeout
+	print("showing popup window on enter with message to forward: ", GlobalVariables.message_to_forward)
+	if is_lobby && GlobalVariables.message_to_forward != "":
+		lobby_ui.ShowPopupWindow(GlobalVariables.message_to_forward)
+		GlobalVariables.message_to_forward = ""
 
 func ShowForwardedMessage():
 	if GlobalVariables.message_to_forward != "":
@@ -81,6 +90,10 @@ func Pipe(alias : String = "", sub_alias : String = ""):
 			lobby_ui.NumberOfRounds_Subtract()
 		"kick player in lobby":
 			KickPlayerInLobby(int(sub_alias))
+		"close popup":
+			lobby_ui.ClosePopupWindow()
+		"find players to play with":
+			lobby_ui.OpenDiscordLink()
 
 func KickPlayerInLobby(steam_id : int):
 	print("attempting to kick player: ", steam_id)
@@ -126,6 +139,7 @@ func _on_lobby_created(connect: int, this_lobby_id: int) -> void:
 	if connect == 1:
 		# Set the lobby ID
 		GlobalSteam.LOBBY_ID = this_lobby_id
+		GlobalVariables.steam_id_version_checked_array.append(GlobalSteam.STEAM_ID)
 		print("Created a lobby: %s" % GlobalSteam.LOBBY_ID)
 
 		# Set this lobby as joinable, just in case, though this should be done by default
@@ -176,6 +190,7 @@ func leave_lobby() -> void:
 		
 		# Wipe the Steam lobby ID then display the default lobby ID and player list title
 		GlobalSteam.LOBBY_ID = 0
+		GlobalVariables.steam_id_version_checked_array = []
 		print("### lobby members: ", GlobalSteam.LOBBY_MEMBERS)
 		# Close session with all users
 		for this_member in GlobalSteam.LOBBY_MEMBERS:
@@ -209,26 +224,35 @@ func _on_lobby_joined(this_lobby_id: int, _permissions: int, _locked: bool, resp
 		
 		get_lobby_members()
 		make_p2p_handshake()
-		
+		check_version()
 	# Else it failed for some reason
 	else:
 		# Get the failure reason
 		var fail_reason: String
+		var p_fail_reason : String
 		
 		match response:
-			Steam.CHAT_ROOM_ENTER_RESPONSE_DOESNT_EXIST: fail_reason = "This lobby no longer exists."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_NOT_ALLOWED: fail_reason = "You don't have permission to join this lobby."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_FULL: fail_reason = "The lobby is now full."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_ERROR: fail_reason = "Uh... something unexpected happened!"
-			Steam.CHAT_ROOM_ENTER_RESPONSE_BANNED: fail_reason = "You are banned from this lobby."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_LIMITED: fail_reason = "You cannot join due to having a limited account."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_CLAN_DISABLED: fail_reason = "This lobby is locked or disabled."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_COMMUNITY_BAN: fail_reason = "This lobby is community locked."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_MEMBER_BLOCKED_YOU: fail_reason = "A user in the lobby has blocked you from joining."
-			Steam.CHAT_ROOM_ENTER_RESPONSE_YOU_BLOCKED_MEMBER: fail_reason = "A user you have blocked is in the lobby."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_DOESNT_EXIST: p_fail_reason = "This lobby no longer exists."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_NOT_ALLOWED: p_fail_reason = "You don't have permission to join this lobby."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_FULL: p_fail_reason = "The lobby is now full."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_ERROR: p_fail_reason = "Uh... something unexpected happened!"
+			Steam.CHAT_ROOM_ENTER_RESPONSE_BANNED: p_fail_reason = "You are banned from this lobby."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_LIMITED: p_fail_reason = "You cannot join due to having a limited account."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_CLAN_DISABLED: p_fail_reason = "This lobby is locked or disabled."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_COMMUNITY_BAN: p_fail_reason = "This lobby is community locked."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_MEMBER_BLOCKED_YOU: p_fail_reason = "A user in the lobby has blocked you from joining."
+			Steam.CHAT_ROOM_ENTER_RESPONSE_YOU_BLOCKED_MEMBER: p_fail_reason = "A user you have blocked is in the lobby."
 		
-		print("Failed to join this chat room: %s" % fail_reason)
-		Console_Copypaste(tr("MP_UI LOBBY ID ERROR DISBANDED"))
+		match response:
+			Steam.CHAT_ROOM_ENTER_RESPONSE_DOESNT_EXIST: fail_reason = tr("MP_UI LOBBY ID ERROR DISBANDED")
+			Steam.CHAT_ROOM_ENTER_RESPONSE_FULL: fail_reason = tr("MP_UI LOBBY FULL")
+			Steam.CHAT_ROOM_ENTER_RESPONSE_LIMITED: fail_reason = tr("MP_UI LOBBY LIMITED")
+			Steam.CHAT_ROOM_ENTER_RESPONSE_MEMBER_BLOCKED_YOU: fail_reason = tr("MP_UI LOBBY BLOCKED YOU")
+			Steam.CHAT_ROOM_ENTER_RESPONSE_YOU_BLOCKED_MEMBER: fail_reason = tr("MP_UI LOBBY BLOCKED MEMBER")
+			_: fail_reason = tr("MP_UI LOBBY FAIL GENERIC")
+		
+		print("Failed to join this chat room: %s" % p_fail_reason)
+		lobby_ui.ShowPopupWindow(fail_reason)
 		
 		#Reopen the lobby list
 		#_on_open_lobby_list_pressed()
@@ -245,6 +269,18 @@ func make_p2p_handshake() -> void:
 	#print("Sending P2P handshake to the lobby")
 	#send_p2p_packet(0, {"message": "handshake", "from": GlobalSteam.STEAM_ID})
 
+func check_version():
+	if GlobalSteam.STEAM_ID != GlobalSteam.HOST_ID:
+		print("sending host the current version (%s) and waiting for response." % GlobalVariables.version_to_check)
+		var packet = {
+			"packet category": "MP_LobbyManager",
+			"packet alias": "check version",
+			"sent_from": "client",
+			"packet_id": 32,
+			"version": GlobalVariables.version_to_check,
+		}
+		packets.send_p2p_packet_directly_to_host(GlobalSteam.STEAM_ID, packet)
+
 func _on_lobby_chat_update(this_lobby_id: int, change_id: int, making_change_id: int, chat_state: int) -> void:
 	# Get the user who has made the lobby change
 	var changer_name: String = Steam.getFriendPersonaName(change_id)
@@ -255,14 +291,17 @@ func _on_lobby_chat_update(this_lobby_id: int, change_id: int, making_change_id:
 	
 	# Else if a player has left the lobby
 	elif chat_state == Steam.CHAT_MEMBER_STATE_CHANGE_LEFT:
+		GlobalVariables.steam_id_version_checked_array.erase(change_id)
 		print("%s has left the lobby." % changer_name)
 	
 	# Else if a player has been kicked
 	elif chat_state == Steam.CHAT_MEMBER_STATE_CHANGE_KICKED:
+		GlobalVariables.steam_id_version_checked_array.erase(change_id)
 		print("%s has been kicked from the lobby." % changer_name)
 	
 	# Else if a player has been banned
 	elif chat_state == Steam.CHAT_MEMBER_STATE_CHANGE_BANNED:
+		GlobalVariables.steam_id_version_checked_array.erase(change_id)
 		print("%s has been banned from the lobby." % changer_name)
 	
 	# Else there was some unknown change
@@ -323,13 +362,46 @@ func ReceivePacket_KickPlayer(packet : Dictionary):
 	GlobalSteam.USER_ID_LIST_TO_IGNORE.append(packet.steam_id)
 	if GlobalSteam.STEAM_ID == packet.steam_id:
 		leave_lobby()
-		if instance_handler != null: instance_handler.intermediary.ExitGame()
+		if is_lobby:
+			lobby_ui.ShowPopupWindow(tr("MP_UI LOBBY KICKED"))
+		if instance_handler != null: 
+			instance_handler.intermediary.ExitGame(tr("MP_UI LOBBY KICKED"))
 	if GlobalVariables.mp_debugging:
 		for i in range(GlobalSteam.LOBBY_MEMBERS.size()):
 			if GlobalSteam.LOBBY_MEMBERS[i].steam_id == packet.steam_id:
 				GlobalSteam.LOBBY_MEMBERS.remove_at(i)
 				break
 		instance_handler.CheckLobbyMemberArray()
+
+func ReceivePacket_VersionCheck(packet : Dictionary, user_id : int):
+	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		var allowed = GlobalVariables.version_to_check == packet.version
+		if allowed:
+			print("version check with %s successful." % user_id)
+			GlobalVariables.steam_id_version_checked_array.append(user_id)
+			lobby_ui.CheckAllVersions()
+		else:
+			print("version check with %s unsuccessful." % user_id)
+			Console_Copypaste(tr("MP_UI LOBBY VERSION MISMATCH HOST") % Steam.getFriendPersonaName(user_id))
+		var response = {
+			"packet category": "MP_LobbyManager",
+			"packet alias": "version response",
+			"packet_id": 33,
+			"sent_from": "host",
+			"entry_allowed": allowed,
+			"host_version": GlobalVariables.version_to_check,
+		}
+		packets.send_p2p_packet(user_id, response)
+		if allowed:
+			lobby_ui.SendMatchInformation()
+
+func ReceivePacket_VersionResponse(packet : Dictionary):
+	if !packet.entry_allowed:
+		print("this version of the game: (%s) did not match the host version: (%s). disconnecting." % [GlobalVariables.version_to_check, packet.host_version])
+		lobby_ui.ShowPopupWindow(tr("MP_UI LOBBY VERSION MISMATCH") % [GlobalVariables.version_to_check, packet.host_version])
+		leave_lobby()
+	else:
+		print("this version of the game: (%s) matches the host version: (%s). continuing." % [GlobalVariables.version_to_check, packet.host_version])
 
 @export var ui_memberlist : Label
 @export var ui_id_user : Label

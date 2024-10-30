@@ -49,6 +49,8 @@ func SetShotgunVisible_Global(setting_visible : bool):
 	globalparent_shotgun_forestock.visible = setting_visible
 
 func ExitGame(message_to_forward : String = ""):
+	instance_handler.removing_instances = false
+	print("exiting game with message to forward: ", message_to_forward)
 	GlobalVariables.message_to_forward = message_to_forward
 	input_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
 	viewblocker_top_global.visible = true
@@ -67,9 +69,10 @@ func InteractionPipe(alias : String, button_class_main : MP_ButtonClassMain):
 		"disconnect button":
 			ingame_lobby_ui.ShowConfirmation()
 		"disconnect confirmation yes":
-			#instance_handler.Setup_ExitGameWithLobbyMembers()
 			if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
-				instance_handler.Setup_ExitGameWithLobbyMembers()
+				GlobalVariables.disband_lobby_after_exiting_main_scene = true
+				ExitGame()
+				#instance_handler.Setup_ExitGameWithLobbyMembers()
 			else:
 				GlobalVariables.disband_lobby_after_exiting_main_scene = true
 				ExitGame()
