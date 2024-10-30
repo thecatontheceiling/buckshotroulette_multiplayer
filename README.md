@@ -5,4 +5,4 @@ https://github.com/thecatontheceiling/buckshotroulette_multiplayer/blob/f817f018
 ![image](https://github.com/user-attachments/assets/2a60fb9b-9cef-4062-ac58-2a75dc2b59d6)
 
 
-There's likely other things you can do like sending malformed packets to mess with other people but I didn't bother trying that out myself.
+There's likely other things you can do like sending malformed packets to mess with other people (if you're the host) but I didn't bother trying that out myself.
