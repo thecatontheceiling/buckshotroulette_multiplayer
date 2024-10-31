@@ -242,14 +242,18 @@ func CheckIfItemGrabbingFinishedForAllUsers():
 
 func CheckIfAllInventoriesAreFull():
 	var full_inventory_count = 0
-	for instance_properties in instance_handler.instance_property_array:
+	var alive_user_property_array = []
+	for property in instance_handler.instance_property_array:
+		if property.health_current != 0:
+			alive_user_property_array.append(property)
+	for instance_properties in alive_user_property_array:
 		var instance_item_count = 0
 		for dictionary in instance_properties.user_inventory:
 			if dictionary != {}:
 				instance_item_count += 1
 		if instance_item_count == 8:
 			full_inventory_count += 1
-	var all_inventories_full : bool = full_inventory_count == instance_handler.instance_property_array.size()
+	var all_inventories_full : bool = full_inventory_count == alive_user_property_array.size()
 	print("all inventories full: ", all_inventories_full)
 	return all_inventories_full
 

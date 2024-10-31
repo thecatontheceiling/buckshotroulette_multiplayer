@@ -57,7 +57,7 @@ func PacketSort(dict : Dictionary):
 			#debug here1
 			#var debug_properties = GetSocketProperties(dict.sent_from_socket)
 			#var temp = [3, 3, 2, 8, 5, 6, 8, 9]
-			#temp = [1, 2, 3, 4, 5, 6, 8, 9, 10]
+			#temp = [2, 2, 2, 4, 5, 6, 8, 9, 10]
 			#debug_properties.debug_index += 1
 			#if debug_properties.debug_index == temp.size(): debug_properties.debug_index = 0
 			#item_to_grab = temp[debug_properties.debug_index]
@@ -96,6 +96,7 @@ func PacketSort(dict : Dictionary):
 				"socket_number": dict.sent_from_socket,
 				"stealing_item": dict.stealing_item,
 				"ending_turn_after_item_use": game_state.CheckIfEndingTurnAfterItemUse(dict.item_id, dict.sent_from_socket),
+				"current_shell_in_chamber": game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0],
 			}
 		"secondary item interaction request":
 			packet = {

@@ -146,6 +146,9 @@ func ShowPopupWindow(with_message : String):
 	cursor.controller.previousFocus = button_class_popup_close
 
 func ClosePopupWindow():
+	if GlobalVariables.returning_to_main_menu_on_popup_close:
+		ExitAfterClosingPopupWindow()
+		GlobalVariables.returning_to_main_menu_on_popup_close = false
 	lobby.viewing_popup = false
 	animator_popup.play("hide")
 	await get_tree().create_timer(.26, false).timeout
@@ -153,6 +156,10 @@ func ClosePopupWindow():
 	if GlobalVariables.controllerEnabled or cursor.controller_active:
 		GetFirstUIFocus().grab_focus()
 	cursor.controller.previousFocus = GetFirstUIFocus()
+
+func ExitAfterClosingPopupWindow():
+	await get_tree().create_timer(.2, false).timeout
+	ExitToMainMenu()
 
 func OpenDiscordLink():
 	OS.shell_open(GlobalVariables.discord_link)

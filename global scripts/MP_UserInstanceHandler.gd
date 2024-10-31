@@ -235,7 +235,7 @@ func GetEnvironmentalEvent():
 
 func SetupDictionary_test():
 	var dict
-	GlobalSteam.HOST_ID = 76561198358844980
+	GlobalSteam.HOST_ID = 1234
 	for i in range(4): 
 		dict = {
 			"socket_number": 0,
@@ -247,7 +247,7 @@ func SetupDictionary_test():
 		instance_dictionary_test.append(dict)
 	
 	instance_dictionary_test[0].socket_number = 0
-	instance_dictionary_test[0].user_id = 76561198358844980
+	instance_dictionary_test[0].user_id = 1234
 	instance_dictionary_test[0].user_name = "MIKE"
 	instance_dictionary_test[0].is_host = true
 	
@@ -267,7 +267,7 @@ func SetupDictionary_test():
 	instance_dictionary_test[3].cpu_enabled = true
 	
 	GlobalSteam.LOBBY_MEMBERS = [
-	{	"steam_id": 76561198358844980,
+	{	"steam_id": 1234,
 		"steam_name": "Mike"},
 	{ 	"steam_id": 111,
 		"steam_name": "RAM"},

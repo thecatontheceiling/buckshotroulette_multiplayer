@@ -105,7 +105,7 @@ func InteractWithItem_FirstPerson(packet : Dictionary):
 	item_object = properties.intermediary.game_state.MAIN_inventory_by_socket[packet.item_socket_number][local_grid_index].item_instance
 	RemoveItemFromInventory(local_grid_index, packet.item_socket_number)
 	GetItemVariables(item_object)
-	ChangeGameStateWithItem(active_id)
+	ChangeGameStateWithItem(active_id, packet)
 	if !packet.stealing_item:
 		animator_items_firstperson.play("RESET")
 	else:
@@ -167,7 +167,7 @@ func InteractWithItem_ThirdPerson(packet : Dictionary):
 		properties.is_on_secondary_interaction = false
 	RemoveItemFromInventory(local_grid_index, packet.item_socket_number)
 	GetItemVariables(item_object)
-	ChangeGameStateWithItem(active_id)
+	ChangeGameStateWithItem(active_id, packet)
 	animator_items_thirdperson.play("RESET")
 	await(hands.Hand_PickupItem(local_grid_index, active_id, active_interaction_branch.which_hand_to_grab_with, item_object))
 	match active_id:
@@ -281,11 +281,12 @@ func ReturnJammerAfterTimeout():
 		properties.jammer_manager.looping = false
 		animator_items_thirdperson.play("use item id 3 third person_secondary exit")
 
-func ChangeGameStateWithItem(item_id : int):
+func ChangeGameStateWithItem(item_id : int, packet : Dictionary = {}):
 	properties.stat_number_of_items_used += 1
 	match active_id:
 		2:	#magnifying glass
-			var shell_in_chamber = properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0]
+			#var shell_in_chamber = properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0]
+			var shell_in_chamber = packet.current_shell_in_chamber
 			shell_branch_inspection.SetState_Inspecting(shell_in_chamber)
 		3:	#jammer
 			properties.is_viewing_jammer = true
