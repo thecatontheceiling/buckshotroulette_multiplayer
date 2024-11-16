@@ -12,6 +12,7 @@ func _ready():
 func SetMainPermission(state : bool):
 	SetPermission_Shotgun(state)
 	SetItemPermissions(state)
+	GlobalVariables.cursor_state_after_toggle = state
 	cursor.SetCursor(state, state)
 	if !state:
 		properties.SetTurnControllerPrompts(false)
@@ -19,6 +20,7 @@ func SetMainPermission(state : bool):
 func SetMainPermission_Stealing():
 	SetPermission_Shotgun(false)
 	SetItemPermissions(true, true)
+	GlobalVariables.cursor_state_after_toggle = true
 	cursor.SetCursor(true, true)
 	properties.SetAdrenalineControllerPrompts(true)
 

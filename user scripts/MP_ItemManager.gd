@@ -76,6 +76,7 @@ func _unhandled_input(event):
 				PlaceItemRequest(debug_grid_index)
 		if event.is_action_pressed("debug_pgdn") && properties.is_active:
 			properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = ["live", "live", "live", "live", "live", "live", "live", "live", ]
+			#properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = ["live", "live"]
 			if properties.intermediary.game_state.MAIN_active_sequence_dict != null:
 				if properties.intermediary.game_state.MAIN_active_sequence_dict.has("sequence_in_shotgun"):
 					print ("sequence in shotgun: ", properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun)
@@ -91,7 +92,9 @@ func BeginItemGrabbing():
 	print("begin item grabbing on user name: ", properties.user_name)
 	properties.is_grabbing_items = true
 	debug_grid_index = -1
-	if properties.death.user_reviving: await get_tree().create_timer(2.72, false).timeout
+	if !properties.running_fast_revival:
+		await get_tree().create_timer(1.3, false).timeout
+	#if properties.death.user_reviving: await get_tree().create_timer(2.72, false).timeout
 	properties.num_of_items_currently_grabbed = 0
 	if properties.is_active:
 		properties.inspection.SetInspectObject(false)
@@ -105,6 +108,7 @@ func BeginItemGrabbing():
 		if properties.cursor.controller_active: btn_briefcase_intake.grab_focus()
 		properties.controller.previousFocus = btn_briefcase_intake
 		
+		GlobalVariables.cursor_state_after_toggle = true
 		properties.cursor.SetCursor(true, true)
 		print("set cursor true in item grab")
 		SetIntakeCollider(true)
@@ -149,6 +153,13 @@ func EndItemGrabbingAfterTimeout():
 		properties.intermediary.game_state.MAIN_active_num_of_users_finished_item_grabbing += 1
 		properties.intermediary.game_state.CheckIfItemGrabbingFinishedForAllUsers()
 
+func EndItemGrabbingAfterNonEligible():
+	properties.is_grabbing_items = false
+	if properties.is_active:
+		EndItemGrabbing()
+	else:
+		properties.hands.Hands_ReturnBriefcase()
+
 func GrabItemRequest():
 	SetIntakeCollider(false)
 	SetGridColliders(false)
@@ -190,6 +201,8 @@ func ReceivePacket_GrabItem(dict : Dictionary):
 			properties.item_manager.PlayItemPullSound_ThirdPerson()
 
 func ReceivePacket_PlaceItem(dict : Dictionary):
+	if properties.socket_number in dict.sockets_ending_item_grabbing:
+		EndItemGrabbingAfterNonEligible()
 	if dict.socket_number == properties.socket_number:
 		properties.is_holding_item_to_place = false
 		if properties.is_active:

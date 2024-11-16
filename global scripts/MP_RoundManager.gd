@@ -26,6 +26,7 @@ var active_current_main_round_index : int
 var active_current_sub_round_index : int
 
 var intro_finished = false
+var is_first_sequence = false
 
 var fs = false
 
@@ -56,15 +57,18 @@ func PacketSort(dict : Dictionary):
 			game_state.MAIN_active_socket_inventories_to_clear = dict.socket_inventories_to_remove
 			game_state.MAIN_active_checking_for_first_death = true
 			game_state.MAIN_active_turn_order = "CW"
+			game_state.FreeLookCameraForAllUsers_Disable()
 			await(UnJamAllUsers())
 			await(ReviveAllDeadUsers())
 			await(SetupRoundIndicators())
 			await(SetupHealthIndicators())
 			await(ClearUserInventories())
-			BeginItemGrabbingForAllUsers()
+			BeginItemGrabbingForSockets(dict.sockets_to_begin_item_grabbing_on)
 		"load shotgun routine":
+			game_state.FreeLookCameraForAllUsers_Disable()
 			game_state.MAIN_active_sequence_dict = dict.sequence_dictionary
 			game_state.MAIN_active_first_turn_socket = dict.first_turn_socket
+			for property in instance_handler.instance_property_array: property.running_fast_revival = false
 			LoadShotgun()
 		"pass turn":
 			game_state.MAIN_active_first_turn_socket = dict.socket_to_pass_turn_to
@@ -72,6 +76,7 @@ func PacketSort(dict : Dictionary):
 		"end turn":
 			MainRoutine_UserEndTurn(dict)
 		"game conclusion":
+			game_state.FreeLookCameraForAllUsers_Disable()
 			GameConclusion(dict)
 
 func _unhandled_input(event):
@@ -84,11 +89,14 @@ func _unhandled_input(event):
 				property.permissions.SetMainPermission(false)
 
 func MainRoutine_StartRound():
-	GenerateRandomRound()
-	GetRandomItemGrabAmount()
+	game_state.MAIN_is_start_of_new_round = true
 	game_state.MAIN_active_first_turn_socket = GetFirstTurn_Socket()
 	game_state.MAIN_active_round_index += 1
 	game_state.MAIN_active_socket_inventories_to_clear = game_state.GetSocketInventoriesToClear()
+	game_state.SetItemDistributionVariablesFromCustomization(game_state.MAIN_active_round_index)
+	is_first_sequence = true
+	GenerateRandomRound()
+	GetRandomItemGrabAmount()
 	var packet = {
 	"packet category": "MP_RoundManager",
 	"packet alias": "first round routine",
@@ -98,7 +106,13 @@ func MainRoutine_StartRound():
 	"active_round_index": game_state.MAIN_active_round_index,
 	"socket_inventories_to_remove": game_state.MAIN_active_socket_inventories_to_clear,
 	"running_intro": !GlobalVariables.skipping_intro,
+	"sockets_to_begin_item_grabbing_on": game_state.GetSocketsToBeginItemGrabbingOn(true)
 	}
+	print("starting first round routine with")
+	print("first turn socket: ", packet.first_turn_socket)
+	print("socket inventories to remove: ", packet.socket_inventories_to_remove)
+	print("sockets to begin item grabbing on: ", packet.sockets_to_begin_item_grabbing_on)
+	game_state.MAIN_is_start_of_new_round = false
 	packets.send_p2p_packet(0, packet)
 	packets.PipeData(packet)
 
@@ -141,6 +155,12 @@ func MainRoutine_BeginItemGrab():
 
 func MainRoutine_LoadShotgun():
 	print("main routine loading shotgun ...")
+	game_state.MAIN_shotgun_loading_in_progress = true
+	if is_first_sequence:
+		game_state.IncrementActiveSequenceIndex(0)
+	else:
+		game_state.IncrementActiveSequenceIndex()
+	is_first_sequence = false
 	GenerateRandomSequence()
 	var packet = {
 		"packet category": "MP_RoundManager",
@@ -175,7 +195,7 @@ func UserEndTurn_Packet(from_socket : int = 0, passing_next_turn : bool = false,
 			"next_turn_socket": GetNextTurn_Socket(from_socket),
 			"shotgun_empty": shotgun_empty,
 			"user_won_game_at_socket": user_has_won_game_at_socket,
-			"distributing_items": !game_state.CheckIfAllInventoriesAreFull(),
+			"sockets_to_begin_item_grabbing_on": game_state.GetSocketsToBeginItemGrabbingOn(),
 		}
 		packets.send_p2p_packet(0, packet)
 		packets.PipeData(packet)
@@ -196,11 +216,7 @@ func MainRoutine_UserEndTurn(packet_dictionary : Dictionary = {}):
 	else: game_state.MAIN_active_first_turn_socket = packet_dictionary.from_socket
 	
 	if packet_dictionary.shotgun_empty:
-		if packet_dictionary.distributing_items:
-			MainRoutine_BeginItemGrab()
-		else:
-			if (GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID) or GlobalVariables.mp_debugging: 
-				MainRoutine_LoadShotgun()
+		BeginItemGrabbingForSockets(packet_dictionary.sockets_to_begin_item_grabbing_on)
 	else:
 		PassTurn(game_state.MAIN_active_first_turn_socket)
 
@@ -230,6 +246,7 @@ func SetupHealthIndicators():
 
 func LoadShotgun():
 	print("loading shotgun ...")
+	game_state.FreeLookCameraForAllUsers_Disable()
 	animator_shell_sequence_machine.play("RESET")
 	centerpiece.MoveToLoadingDock()
 	intermed.intermed_properties.cam.BeginLerp("sequence socket_" + str(intermed.intermed_properties.socket_number), true)
@@ -246,6 +263,7 @@ func LoadShotgun():
 	await get_tree().create_timer(.4, false).timeout
 	passing_turn_from_dock = true
 	PassTurn(game_state.MAIN_active_first_turn_socket)
+	game_state.MAIN_shotgun_loading_in_progress = false
 	if !fs:
 		if game_state.MAIN_active_environmental_event == "ice machine":
 			intermed.environmental_event.StartIceMachine()
@@ -257,7 +275,10 @@ func ClearUserInventories():
 	await get_tree().create_timer(3.5, false).timeout
 
 func BeginItemGrabbingForAllUsers():
-	print("beginning item grabing for all users ...")
+	print("beginning item grabbing for all users ...")
+	game_state.FreeLookCameraForAllUsers_Enable()
+	game_state.item_grabbing_finished_for_all_users_checked = false
+	game_state.MAIN_item_grabbing_in_progress = true
 	game_state.MAIN_active_num_of_users_finished_item_grabbing = 0
 	game_state.MAIN_active_num_of_users_grabbing_items = 0
 	for i in range(intermed.instance_handler.instance_property_array.size()):
@@ -274,9 +295,34 @@ func BeginItemGrabbingForAllUsers():
 				intermed.instance_handler.instance_property_array[i].cam.BeginLerp("home")
 	print("num of users grabbing items: ", game_state.MAIN_active_num_of_users_grabbing_items)
 
+func BeginItemGrabbingForSockets(socket_number_array):
+	if socket_number_array == []:
+		if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+			MainRoutine_LoadShotgun()
+			print("is host: none of the users are set to grab items. starting shell load and returning.")
+			return
+		else:
+			print("is not host: none of the users are set to grab items. returning")
+			return
+	print("beginning item grabbing for sockets: ", socket_number_array)
+	game_state.FreeLookCameraForAllUsers_Enable()
+	game_state.item_grabbing_finished_for_all_users_checked = false
+	game_state.MAIN_item_grabbing_in_progress = true
+	game_state.MAIN_active_num_of_users_finished_item_grabbing = 0
+	game_state.MAIN_active_num_of_users_grabbing_items = 0
+	for property in instance_handler.instance_property_array:
+		if property.socket_number in socket_number_array:
+			property.item_manager.BeginItemGrabbing()
+			game_state.BeginTimeoutForSocket("item distribution", game_state.MAIN_timeout_duration_item_distribution, property.socket_number)
+			game_state.MAIN_active_num_of_users_grabbing_items += 1
+		else:
+			property.cam.BeginLerp("home")
+	print("num of users grabbing items: ", game_state.MAIN_active_num_of_users_grabbing_items)
+
 var passing_turn_from_dock = false
 func PassTurn(to_socket : int):
 	game_state.ClearTimeouts()
+	game_state.FreeLookCameraForAllUsers_Enable()
 	var previous_socket = game_state.MAIN_active_current_turn_socket
 	game_state.MAIN_active_current_turn_socket = to_socket
 	var direction_string = GetDirection(intermed.intermed_properties.socket_number, to_socket)
@@ -392,7 +438,21 @@ func GenerateRandomRound():
 			health_r1 = 1
 			health_r2 = 1
 
-	var starting_health = randi_range(health_r1, health_r2)
+	var starting_health = 0
+	var setting_random = false
+	var set = 0
+	for round in GlobalVariables.active_match_customization_dictionary.round_property_array:
+		if round.round_index == game_state.MAIN_active_round_index:
+			if round.starting_health == -1:
+				setting_random = true
+			else:
+				set = round.starting_health
+	
+	if setting_random:
+		starting_health = randi_range(health_r1, health_r2)
+	else:
+		starting_health = set
+	
 	var dict = {
 		"starting_health": starting_health,
 	}
@@ -412,10 +472,29 @@ func GenerateRandomSequence():
 	selected_sequence_batch_array_copy_in_use.erase(randomly_selected_sequence)
 	
 	var sequence = []
-	for i in randomly_selected_sequence.amount_shell_live:
-		sequence.append("live")
-	for i in randomly_selected_sequence.amount_shell_blank:
-		sequence.append("blank")
+	var setting_random = false
+	var blanks = 0
+	var lives = 0
+	for round in GlobalVariables.active_match_customization_dictionary.round_property_array:
+		if round.round_index == game_state.MAIN_active_round_index:
+			for shell_load in round.shell_load_properties:
+				if shell_load.sequence_index == game_state.MAIN_active_sequence_index_to_pull:
+					if shell_load.number_of_blanks == -1 or shell_load.number_of_lives == -1:
+						setting_random = true
+					else:
+						blanks = shell_load.number_of_blanks
+						lives = shell_load.number_of_lives
+	
+	if setting_random:
+		for i in randomly_selected_sequence.amount_shell_live:
+			sequence.append("live")
+		for i in randomly_selected_sequence.amount_shell_blank:
+			sequence.append("blank")
+	else:
+		for i in lives:
+			sequence.append("live")
+		for i in blanks:
+			sequence.append("blank")
 		
 	var shuffling_sequence = false
 	var flip = randi_range(0, 1)
@@ -428,11 +507,10 @@ func GenerateRandomSequence():
 		"shuffling_visible_sequence": shuffling_sequence,
 	}
 	game_state.MAIN_active_sequence_dict = dict
-	if printing:
-		print("ACTIVE SEQUENCE DICTIONARY:")
-		print("sequence_visible: ", game_state.MAIN_active_sequence_dict.sequence_visible)
-		print("sequence in shotgun: hidden")
-		print("-----------------------------------------------------------------")
+	print("ACTIVE SEQUENCE DICTIONARY:")
+	print("sequence_visible: ", game_state.MAIN_active_sequence_dict.sequence_visible)
+	print("sequence in shotgun: hidden")
+	print("-----------------------------------------------------------------")
 
 func GetSelectedSequenceCopy(for_user_amount : int):
 	var selected
@@ -465,7 +543,23 @@ func GetRandomItemGrabAmount():
 			item_r1 = 2
 			item_r2 = 4
 	
-	var num_of_items_to_grab = randi_range(item_r1, item_r2)
+	var num_of_items_to_grab = 0
+	var setting_random = false
+	var set = 0
+	
+	for round in GlobalVariables.active_match_customization_dictionary.round_property_array:
+		if round.round_index == game_state.MAIN_active_round_index:
+			for shell_load in round.shell_load_properties:
+				if shell_load.sequence_index == game_state.MAIN_active_sequence_index_to_pull:
+					if shell_load.number_of_items == -1:
+						setting_random = true
+					else:
+						set = shell_load.number_of_items
+	
+	if setting_random:
+		num_of_items_to_grab = randi_range(item_r1, item_r2)
+	else:
+		num_of_items_to_grab = set
 	game_state.MAIN_active_num_of_items_to_grab = num_of_items_to_grab
 
 func GetDirection(self_socket, selected_socket):

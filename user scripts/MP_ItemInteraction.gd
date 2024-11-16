@@ -23,6 +23,20 @@ func _unhandled_input(event):
 		if event.is_action_pressed("8") && properties.socket_number == properties.intermediary.game_state.MAIN_active_current_turn_socket:
 			debug_index += 1
 			InteractWithItemRequest(properties.user_inventory_instance_array[debug_index])
+		if event.is_action_pressed("2"):
+			if properties.socket_number == 1:
+				var packet = {
+				"packet category": "MP_PacketVerification",
+				"packet alias": "interact with item request",
+				"packet_id": 22,
+				"sent_from": "client",
+				"item_socket_number": 2,
+				"local_grid_index": 0,
+				"item_id": 2,
+				"stealing_item": true,
+				"sent_from_socket": 1,
+				}
+				properties.intermediary.packets.PipeData(packet)
 
 func InteractWithItemRequest(item_object_parent : Node3D, stealing_item : bool = false):
 	properties.permissions.SetMainPermission(false)
@@ -157,11 +171,12 @@ func InteractWithItem_FirstPerson(packet : Dictionary):
 
 func InteractWithItem_ThirdPerson(packet : Dictionary):
 	var local_grid_index = packet.local_grid_index
-	var item_object : Node3D = properties.user_inventory_instance_array[local_grid_index]
-	for user_property in properties.intermediary.instance_handler.instance_property_array:
-		if user_property.socket_number == packet.item_socket_number:
-			item_object = user_property.user_inventory_instance_array[local_grid_index]
-			break
+	var item_object : Node3D #= properties.user_inventory_instance_array[local_grid_index]
+	#for user_property in properties.intermediary.instance_handler.instance_property_array:
+	#	if user_property.socket_number == packet.item_socket_number:
+	#		item_object = user_property.user_inventory_instance_array[local_grid_index]
+	#		break
+	item_object = properties.intermediary.game_state.MAIN_inventory_by_socket[packet.item_socket_number][local_grid_index].item_instance
 	if packet.stealing_item:
 		properties.is_stealing_item = false
 		properties.is_on_secondary_interaction = false
@@ -325,6 +340,9 @@ func RemoveItemFromInventory(at_local_grid_index : int, item_at_socket_number : 
 			properties.intermediary.game_state.Global_RemoveItemFromInventory(user_property.socket_number, at_local_grid_index)
 			user_property.user_inventory[at_local_grid_index] = {}
 			user_property.user_inventory_instance_array[at_local_grid_index] = null
+			return
+	#remove item from global inventory if the instance property was not found
+	properties.intermediary.game_state.Global_RemoveItemFromInventory(item_at_socket_number, at_local_grid_index)
 
 func PickupItem(item_object_parent : Node3D):
 	var active_stream : AudioStream

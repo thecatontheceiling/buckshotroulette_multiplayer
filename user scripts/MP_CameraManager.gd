@@ -29,16 +29,25 @@ var lerp_previous = ""
 
 func _ready():
 	dur_original = dur
+	await get_tree().create_timer(3, false).timeout
+	fs2 = true
 
 func _process(delta):
 	LerpMovement()
 
 var fs = false
+var fs2 = false
+var returning_on_previous_lerp = true
 func BeginLerp(lerpName : String, moving_slower : bool = false):
 	if properties.is_active:
-		if lerpName == lerp_previous: return
+		if lerpName == lerp_previous && returning_on_previous_lerp:
+			return
+		if properties.camera_look.looking_active:
+			lerp_previous = lerpName
+			return
 		lerp_previous = lerpName
-		if fs: PanSound()
+		if fs && fs2: 
+			PanSound()
 		activeSocket = lerpName
 		for i in range(socketArray.size()):
 			if (lerpName == socketArray[i].socketName):

@@ -18,7 +18,7 @@ var segment_array = []
 
 func _ready():
 	Steam.avatar_loaded.connect(_on_loaded_avatar)
-	HideConfirmation()
+	#HideConfirmation()
 	ui_parent.visible = false
 	for instance in instance_array:
 		segment_array.append(instance.get_child(0))
@@ -33,17 +33,18 @@ var ignoring_viewing = false
 func ToggleUI():
 	if !toggle_allowed: return
 	viewing_ui = !viewing_ui
+	intermediary.intermed_properties.cursor.checking_options = viewing_ui
 	if viewing_ui:
 		ignoring_viewing = true
 		if !intermediary.intermed_properties.cursor.cursor_visible:
-			intermediary.intermed_properties.cursor.checking_options = true
+			#intermediary.intermed_properties.cursor.SetCursor(GlobalVariables.cursor_state_after_toggle, false)
 			intermediary.intermed_properties.cursor.SetCursor(true, false)
 		ui_parent.visible = true
 		SetInitialFocus()
 	else:
 		HideConfirmation()
 		ui_parent.visible = false
-		intermediary.intermed_properties.cursor.SetCursor(intermediary.intermed_properties.cursor.cursor_visible_after_toggle, false)
+		intermediary.intermed_properties.cursor.SetCursor(GlobalVariables.cursor_state_after_toggle, false)
 		RevertInitialFocus()
 	ignoring_viewing = false
 
@@ -70,7 +71,6 @@ func ShowConfirmation():
 	intermediary.intermed_properties.controller.previousFocus = btn_no
 
 func HideConfirmation():
-	return
 	button_continue.visible = true
 	button_disconnect.visible = true
 	button_confirm_yes.visible = false
@@ -96,7 +96,7 @@ func UpdateUserList():
 			active_index += 1
 			segment_array[active_index].AssignMember(member.steam_id, member.steam_name)
 		if !GlobalVariables.mp_debugging: 
-			print("attempting to get avatar for member: ", member)
+			#print("attempting to get avatar for member: ", member)
 			Steam.getPlayerAvatar(3, member.steam_id)
 	for i in range(GlobalSteam.LOBBY_MEMBERS.size()):
 		segment_array[i].get_parent().visible = true
@@ -104,11 +104,11 @@ func UpdateUserList():
 		for segment in segment_array:
 			segment.ui_kick.visible = false
 			if segment.user_id != GlobalSteam.STEAM_ID:
-				print("set kick ui visible. segment user id: ", segment.user_id, " globalsteam id: ", GlobalSteam.STEAM_ID)
+				#print("set kick ui visible. segment user id: ", segment.user_id, " globalsteam id: ", GlobalSteam.STEAM_ID)
 				segment.ui_kick.visible = true
 
 func ApplyProfilePicture(for_user_id : int, texture : ImageTexture):
-	print("applying profile picture for id: ", for_user_id)
+	#print("applying profile picture for id: ", for_user_id)
 	for segment in segment_array:
 		if segment.user_id == for_user_id:
 			segment.ui_profile_picture.texture = texture
@@ -121,5 +121,5 @@ func _on_loaded_avatar(user_id: int, avatar_size: int, avatar_buffer: PackedByte
 	
 	# Apply the image to a texture
 	var avatar_texture: ImageTexture = ImageTexture.create_from_image(avatar_image)
-	print("got avatar for: ", user_id, " texture: ", avatar_texture)
+	#print("got avatar for: ", user_id, " texture: ", avatar_texture)
 	ApplyProfilePicture(user_id, avatar_texture)

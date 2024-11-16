@@ -12,7 +12,7 @@ enum search_distance {Close, Default, Far, Worldwide}
 @export var connecting_persona_state_change : bool = true
 @export var menu_manager : MenuManager
 @export var command_line : MP_CommandLineChecker
-
+@export var match_customization : MP_MatchCustomization
 
 @export var cursor : MP_CursorManager
 @export var instance_handler : MP_UserInstanceHandler
@@ -82,18 +82,14 @@ func Pipe(alias : String = "", sub_alias : String = ""):
 			ShowInviteDialogue()
 		"return to main menu":
 			lobby_ui.ExitToMainMenu()
-		"toggle skip intro":
-			lobby_ui.ToggleSkipIntro()
-		"number of rounds plus":
-			lobby_ui.NumberOfRounds_Add()
-		"number of rounds minus":
-			lobby_ui.NumberOfRounds_Subtract()
 		"kick player in lobby":
 			KickPlayerInLobby(int(sub_alias))
 		"close popup":
 			lobby_ui.ClosePopupWindow()
 		"find players to play with":
 			lobby_ui.OpenDiscordLink()
+		"customize match settings":
+			lobby_ui.EnterMatchCustomization()
 
 func KickPlayerInLobby(steam_id : int):
 	print("attempting to kick player: ", steam_id)
@@ -182,6 +178,7 @@ func join_lobby(this_lobby_id: int) -> void:
 	Steam.joinLobby(this_lobby_id)
 
 func leave_lobby() -> void:
+	GlobalVariables.previous_match_customization_differences = {}
 	GlobalVariables.lobby_id_found_in_command_line = 0
 	# If in a lobby, leave it
 	if GlobalSteam.LOBBY_ID != 0:
@@ -214,6 +211,8 @@ func leave_lobby() -> void:
 			lobby_ui.GetFirstUIFocus().grab_focus()
 		if cursor != null && cursor.controller != null:
 			cursor.controller.previousFocus = lobby_ui.GetFirstUIFocus()
+	if match_customization != null:
+		match_customization.ClearMatchCustomizationUI()
 
 func _on_lobby_joined(this_lobby_id: int, _permissions: int, _locked: bool, response: int) -> void:
 	GlobalVariables.lobby_id_found_in_command_line = 0
@@ -311,6 +310,7 @@ func _on_lobby_chat_update(this_lobby_id: int, change_id: int, making_change_id:
 	# Update the lobby now that a change has occurred
 	get_lobby_members()
 
+var previous_host = 0
 func get_lobby_members() -> void:
 	var temp_hostname = ""
 	var temp_hostid = 0
@@ -318,7 +318,7 @@ func get_lobby_members() -> void:
 	if instance_handler != null:
 		instance_handler.previous_member_steamid_array = GlobalSteam.LOBBY_MEMBERS.duplicate()
 	
-	print("member array before clear: ", GlobalSteam.LOBBY_MEMBERS)
+	#print("member array before clear: ", GlobalSteam.LOBBY_MEMBERS)
 	# Clear your previous lobby list
 	GlobalSteam.LOBBY_MEMBERS.clear()
 	
@@ -337,13 +337,22 @@ func get_lobby_members() -> void:
 		lobby_ui.UpdatePlayerList()
 	if instance_handler != null: instance_handler.current_member_steamid_array = GlobalSteam.LOBBY_MEMBERS.duplicate()
 	GlobalSteam.HOST_ID = Steam.getLobbyOwner(GlobalSteam.LOBBY_ID)
+	
+	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		if !(GlobalSteam.HOST_ID in GlobalVariables.steam_id_version_checked_array):
+			GlobalVariables.steam_id_version_checked_array.append(GlobalSteam.HOST_ID)
+
+	if (previous_host != GlobalSteam.HOST_ID) && (GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID):
+		if match_customization != null:
+			match_customization.CheckMatchCustomizationDifferences()
+	previous_host = GlobalSteam.HOST_ID
 	var temp_string
 	if (GlobalSteam.STEAM_ID == Steam.getLobbyOwner(GlobalSteam.LOBBY_ID)): 
 		temp_string = "you are the host."
 	else: 
 		temp_string = "you are not the host."
-	if GlobalVariables.sending_lobby_change_alerts_to_console: print("updating lobby member array with lobby member array: ", GlobalSteam.LOBBY_MEMBERS)
-	if GlobalVariables.sending_lobby_change_alerts_to_console: Console("updating lobby member array:\n \n" +  str(GlobalSteam.LOBBY_MEMBERS) + " in id: " + str(GlobalSteam.LOBBY_ID) + "\n" + "\n" + temp_string)
+	#if GlobalVariables.sending_lobby_change_alerts_to_console: print("updating lobby member array with lobby member array: ", GlobalSteam.LOBBY_MEMBERS)
+	#if GlobalVariables.sending_lobby_change_alerts_to_console: Console("updating lobby member array:\n \n" +  str(GlobalSteam.LOBBY_MEMBERS) + " in id: " + str(GlobalSteam.LOBBY_ID) + "\n" + "\n" + temp_string)
 	if instance_handler != null: instance_handler.CheckLobbyMemberArray()
 	if lobby_ui != null: 
 		lobby_ui.UpdatePlayerList()
@@ -393,7 +402,7 @@ func ReceivePacket_VersionCheck(packet : Dictionary, user_id : int):
 		}
 		packets.send_p2p_packet(user_id, response)
 		if allowed:
-			lobby_ui.SendMatchInformation()
+			match_customization.CheckMatchCustomizationDifferences()
 
 func ReceivePacket_VersionResponse(packet : Dictionary):
 	if !packet.entry_allowed:

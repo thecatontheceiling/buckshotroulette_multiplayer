@@ -9,6 +9,7 @@ var lobby_initialized
 
 func _unhandled_input(event):
 	if event.is_action_pressed("1") && GlobalVariables.mp_debugging:
+		print("starting game with match customization settings: ", GlobalVariables.active_match_customization_dictionary)
 		StartGameRoutine_Host()
 
 var fs = false
@@ -17,7 +18,7 @@ func StartGame():
 		if (GlobalSteam.LOBBY_ID != 0):
 			if (GlobalSteam.LOBBY_MEMBERS.size() > 1):
 				if (GlobalSteam.HOST_ID == GlobalSteam.STEAM_ID):
-					print("starting game")
+					print("starting game with match customization settings: ", GlobalVariables.active_match_customization_dictionary)
 					Steam.setLobbyJoinable(GlobalSteam.LOBBY_ID, false)
 					StartGameRoutine_Host()
 					fs = true

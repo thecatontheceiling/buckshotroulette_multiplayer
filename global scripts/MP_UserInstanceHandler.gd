@@ -114,10 +114,13 @@ func RemoveInstancesFromGame(instances_to_delete_array : Array):
 	print("globalparent visible: ", intermediary.globalparent_shotgun.visible)
 	if !intermediary.globalparent_shotgun_main.visible:
 		intermediary.SetShotgunVisible_Global(true)
+	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		if intermediary.game_state.MAIN_item_grabbing_in_progress:
+			intermediary.game_state.CheckIfItemGrabbingFinishedForAllUsers()
 
 func CheckToPassTurnAfterUserDisconnect(socket_number_that_disconnected : int):
 	if GlobalSteam.STEAM_ID != GlobalSteam.HOST_ID: return
-	if socket_number_that_disconnected == intermediary.game_state.MAIN_active_current_turn_socket:
+	if (socket_number_that_disconnected == intermediary.game_state.MAIN_active_current_turn_socket) && !intermediary.game_state.MAIN_shotgun_loading_in_progress:
 		print("the active turn user has disconnected. passing turn to next user ...")
 		await get_tree().create_timer(1, false).timeout
 		round.MainRoutine_PassTurn(round.GetNextTurn_Socket(round.game_state.MAIN_active_current_turn_socket))
@@ -188,7 +191,7 @@ func SetupDictionary():
 			"socket_number": socket_index,
 			"user_id": lobby_dict_array[i].steam_id,
 			"is_host": is_host,
-			"user_name": lobby_dict_array[i].steam_name,
+			"user_name": "empty",
 			"cpu_enabled": false,
 		}
 		instance_dictionary.append(dict)
@@ -207,7 +210,7 @@ func SetupInstances(dictionary_array):
 		
 		properties.socket_number = user.socket_number
 		properties.user_id = user.user_id
-		properties.user_name = user.user_name
+		properties.user_name = Steam.getFriendPersonaName(user.user_id)
 		properties.cpu_enabled = user.cpu_enabled
 		properties.is_active = setting_active
 

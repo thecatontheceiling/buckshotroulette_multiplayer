@@ -96,12 +96,14 @@ func _unhandled_input(event):
 			"sent_from_socket": properties.socket_number,
 			}
 			intermediary.packets.PipeData(packet)
-			await get_tree().create_timer(2, false).timeout
+			await get_tree().create_timer(4, false).timeout
 			look_manager.LookAtDirection(GetDirection(properties.socket_number, socket_to_shoot))
 			await get_tree().create_timer(.1, false).timeout
 			Shoot(null, socket_to_shoot)
 
 func PickupShotgun():
+	properties.FreeLookCameraForUser_Disable()
+	GlobalVariables.cursor_state_after_toggle = false
 	cursor.SetCursor(false, false)
 	properties.permissions.SetMainPermission(false)
 	properties.permissions.SetItemPermissions(false)
@@ -155,6 +157,7 @@ func PickupShotgun_FirstPerson():
 	cam.BeginLerp("select opponent")
 	await get_tree().create_timer(.4, false).timeout
 	ui_you.get_child(0).play("show")
+	GlobalVariables.cursor_state_after_toggle = true
 	cursor.SetCursor(true, true)
 	look_manager.checking = true
 	#SET HOVER PAN OBJECTS
@@ -178,12 +181,15 @@ func PickupShotgun_ThirdPerson(packet_dictionary : Dictionary = {}):
 	PlaySound_ShotgunFoley(false, "pickup")
 
 func Shoot(hoverpan_intbranch : MP_InteractionBranch, overriding_intbranch_with_socket : int = 5):
+	properties.intermediary.game_state.StopTimeoutForSocket("turn", properties.socket_number)
 	if properties.is_active: ui_you.get_child(0).play("hide")
 	var self_socket = properties.socket_number
 	var selected_socket
 	if overriding_intbranch_with_socket == 5: selected_socket = hoverpan_intbranch.properties.socket_number
 	if overriding_intbranch_with_socket != 5: selected_socket = overriding_intbranch_with_socket
 	look_manager.checking = false
+	
+	print("shooting at: ", selected_socket, " from: ", self_socket)
 	
 	var packet = {
 	"packet category": "MP_PacketVerification",
@@ -199,6 +205,7 @@ func Shoot(hoverpan_intbranch : MP_InteractionBranch, overriding_intbranch_with_
 	#SET HOVER PAN OBJECTS
 	for i in range(intermediary.instance_handler.instance_property_array.size()):
 		intermediary.instance_handler.instance_property_array[i].hover_pan.Disable()
+	GlobalVariables.cursor_state_after_toggle = false
 	cursor.SetCursor(false, false)
 	SetTargetControllerPrompts(false)
 
@@ -349,6 +356,8 @@ func CheckIfEndingTurn(packet_dictionary : Dictionary):
 	if active_shooter_sequence_length_after_eject == 0: ending_turn = true; sequence_empty = true
 	if user_has_won_with_socket != -1: ending_turn = true
 	if !packet_dictionary.ending_turn_after_shot:
+		properties.FreeLookCameraForUser_Enable()
+		GlobalVariables.cursor_state_after_toggle = true
 		cursor.SetCursor(true, true)
 		properties.permissions.SetMainPermission(true)
 		properties.SetTurnControllerPrompts(true)
@@ -363,6 +372,7 @@ func ShootingOutcome():
 	await get_tree().create_timer(.1, false).timeout
 	var sequence = intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun
 	var current_shell = sequence[0]
+	if sequence.size() == 1: for property in intermediary.instance_handler.instance_property_array: property.running_fast_revival = true
 	
 	if current_shell == "live":
 		PlaySound_LiveFire()

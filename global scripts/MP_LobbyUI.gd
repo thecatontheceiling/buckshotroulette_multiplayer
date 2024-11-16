@@ -3,8 +3,18 @@ class_name MP_LobbyUI extends Node
 @export var packets : PacketManager
 @export var cursor : MP_CursorManager
 @export var lobby : LobbyManager
+@export var match_customization : MP_MatchCustomization
 @export var ui_host : Array[Control]
 @export var ui_member : Array[Control]
+
+@export_group("lobby scene intermediary")
+@export var speaker_button_press : AudioStreamPlayer2D
+@export var speaker_button_hover : AudioStreamPlayer2D
+@export var lobby_manager : LobbyManager
+@export_group("")
+
+@export var ui_parent_lobby_home : Control
+@export var ui_parent_match_customization : Control
 
 @export var ui_button_host : Control
 @export var ui_button_leave : Control
@@ -14,7 +24,6 @@ class_name MP_LobbyUI extends Node
 @export var ui_invite_friends : Control
 @export var ui_skip_intro : Control
 @export var ui_skip_intro_checkbox : Control
-@export var ui_customize_match_settings : Control
 @export var ui_number_of_rounds : Label
 @export var ui_checkbox_number_of_rounds_plus : Control
 @export var ui_checkbox_number_of_rounds_minus : Control
@@ -23,6 +32,8 @@ class_name MP_LobbyUI extends Node
 @export var ui_checking_animation : Control
 @export var ui_parent_popup_window : Control
 @export var ui_label_popup : Label
+@export var ui_match_customization : Label
+@export var ui_match_customization_first_focus : Control
 
 @export var button_class_popup_close : Control
 @export var button_class_host : Control
@@ -31,6 +42,9 @@ class_name MP_LobbyUI extends Node
 
 @export var pos_number_of_rounds_client : Vector2
 @export var pos_number_of_rounds_host : Vector2
+@export var pos_lobby_id_console_client : Vector2
+@export var pos_lobby_id_console_host : Vector2
+@export var ui_label_lobby_id_console : Control
 
 @export var array_members : Array[Label]
 @export var array_kick : Array[Control]
@@ -45,11 +59,12 @@ class_name MP_LobbyUI extends Node
 @export var speaker_exit : AudioStreamPlayer2D
 @export var viewblocker_main : Control
 @export var animator_game_start : AnimationPlayer
+@export var debug_timeouts_enabled : Control
 
 func _ready():
+	GlobalVariables.cursor_state_after_toggle = false
 	cursor.SetCursor(false, false)
 	UpdatePlayerList()
-	UpdateMatchInformation()
 	
 	if GlobalVariables.running_short_intro_in_lobby_scene:
 		ShortIntro()
@@ -60,6 +75,11 @@ func _ready():
 		LongIntro()
 	GlobalVariables.running_short_intro_in_lobby_scene = false
 	SetWidth()
+	
+	if GlobalSteam.LOBBY_ID == 0:
+		match_customization.ClearMatchCustomizationUI()
+	else:
+		match_customization.UpdateMatchCustomizationUI(GlobalVariables.previous_match_customization_differences)
 
 func _process(delta):
 	CheckHostLeave()
@@ -67,33 +87,59 @@ func _process(delta):
 	CheckHostUI()
 	CheckStartButton()
 	FailsafeFocusUI()
+	DebugLabel()
+	CheckLowerConsolePosition()
+
+func DebugLabel():
+	debug_timeouts_enabled.visible = GlobalVariables.timeouts_enabled
+
+func CheckLowerConsolePosition():
+	if GlobalSteam.LOBBY_ID != 0:
+		if GlobalSteam.HOST_ID == GlobalSteam.STEAM_ID:
+			ui_label_lobby_id_console.position = pos_lobby_id_console_host
+		else:
+			ui_label_lobby_id_console.position = pos_lobby_id_console_client
+	else:
+		ui_label_lobby_id_console.position = pos_lobby_id_console_client
 
 func GetFirstUIFocus():
 	var first_focus : Control
 	if GlobalSteam.LOBBY_ID == 0:
 		first_focus = button_class_host
-		print("first focus: host")
 	else:
 		first_focus = button_class_leave
-		print("first focus: leave")
 	return first_focus
 
 var fs_focus_ui = false
 func FailsafeFocusUI():
 	if !fs_focus_ui:
 		if cursor.controller.previousFocus == button_class_start && button_class_start.get_parent().visible == false:
-			for i in 10:
-				print("failsafed")
 			if GlobalVariables.controllerEnabled or cursor.controller_active:
 				GetFirstUIFocus().grab_focus()
 			cursor.controller.previousFocus = GetFirstUIFocus()
 			fs_focus_ui = true
+
+func EnterMatchCustomization():
+	ui_parent_lobby_home.visible = false
+	ui_parent_match_customization.visible = true
+	match_customization.OnMatchCustomizationEnter()
+	if GlobalVariables.controllerEnabled or cursor.controller_active:
+		ui_match_customization_first_focus.grab_focus()
+	cursor.controller.previousFocus = ui_match_customization_first_focus
+
+func ExitMatchCustomization():
+	ui_parent_match_customization.visible = false
+	ui_parent_lobby_home.visible = true
+	if GlobalVariables.controllerEnabled or cursor.controller_active:
+		GetFirstUIFocus().grab_focus()
+	cursor.controller.previousFocus = GetFirstUIFocus()
 
 func ShortIntro():
 	await get_tree().create_timer(.1, false).timeout
 	animator_intro.play("short intro")
 	speaker_music.play()
 	await get_tree().create_timer(2.5, false).timeout
+	GlobalVariables.cursor_state_after_toggle = true
 	cursor.SetCursor(true, true)
 	if !lobby.viewing_popup:
 		if GlobalVariables.controllerEnabled:
@@ -109,6 +155,7 @@ func LongIntro():
 	speaker_music.play()
 	speaker_intro.play()
 	await get_tree().create_timer(7, false).timeout
+	GlobalVariables.cursor_state_after_toggle = true
 	cursor.SetCursor(true, true)
 	if GlobalVariables.controllerEnabled:
 		GetFirstUIFocus().grab_focus()
@@ -192,39 +239,6 @@ func CheckAllVersions():
 	else:
 		all_versions_matching = false
 
-func ToggleSkipIntro():
-	GlobalVariables.skipping_intro = !GlobalVariables.skipping_intro
-	SendMatchInformation()
-
-func NumberOfRounds_Add():
-	if GlobalVariables.debug_round_index_to_end_game_at == 2: return
-	GlobalVariables.debug_round_index_to_end_game_at += 1
-	SendMatchInformation()
-
-func NumberOfRounds_Subtract():
-	if GlobalVariables.debug_round_index_to_end_game_at == 0: return
-	GlobalVariables.debug_round_index_to_end_game_at -= 1
-	SendMatchInformation()
-
-func SendMatchInformation():
-	var packet = {
-		"packet category": "MP_LobbyManager",
-		"packet alias": "update match info ui",
-		"sent_from": "host",
-		"packet_id": 29,
-		"number_of_rounds": GlobalVariables.debug_round_index_to_end_game_at + 1,
-		"skipping_intro": GlobalVariables.skipping_intro,
-	}
-	packets.send_p2p_packet(0, packet)
-	packets.PipeData(packet)
-
-func UpdateMatchInformation(packet_dictionary : Dictionary = {}):
-	if packet_dictionary != {}:
-		GlobalVariables.debug_round_index_to_end_game_at = packet_dictionary.number_of_rounds - 1
-		GlobalVariables.skipping_intro = packet_dictionary.skipping_intro
-	ui_number_of_rounds.text = tr("MP_UI NUMBER OF ROUNDS") + " " + str(GlobalVariables.debug_round_index_to_end_game_at + 1)
-	ui_check_skip_intro.visible = GlobalVariables.skipping_intro
-
 func CheckStartButton():
 	if GlobalSteam.LOBBY_ID != 0 && GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
 		if all_versions_matching && GlobalSteam.LOBBY_MEMBERS.size() != 1:
@@ -252,34 +266,19 @@ func CheckHostLeave():
 		ui_button_leave.visible = true
 
 func CheckHostUI():
+	if GlobalVariables.mp_debugging:
+		ui_match_customization.visible = true
+		return
 	if GlobalSteam.LOBBY_ID == 0:
-		ui_skip_intro.visible = false
-		ui_skip_intro_checkbox.visible = false
-		ui_number_of_rounds.visible = false
-		ui_checkbox_number_of_rounds_plus.visible = false
-		ui_checkbox_number_of_rounds_minus.visible = false
-		#ui_customize_match_settings.visible = false
+		ui_match_customization.visible = false
 	else:
 		if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
-			ui_skip_intro.visible = true
-			ui_skip_intro_checkbox.visible = true
-			ui_number_of_rounds.position = pos_number_of_rounds_host
-			ui_number_of_rounds.visible = true
-			ui_checkbox_button_skip_intro.visible = true
-			ui_checkbox_number_of_rounds_plus.visible = true
-			ui_checkbox_number_of_rounds_minus.visible = true
-			#ui_customize_match_settings.visible = true
+			ui_match_customization.visible = true
 		else:
-			ui_skip_intro.visible = true
-			ui_skip_intro_checkbox.visible = true
-			ui_number_of_rounds.position = pos_number_of_rounds_client
-			ui_number_of_rounds.visible = true
-			ui_checkbox_button_skip_intro.visible = false
-			ui_checkbox_number_of_rounds_plus.visible = false
-			ui_checkbox_number_of_rounds_minus.visible = false
-			#ui_customize_match_settings.visible = false
+			ui_match_customization.visible = false
 
 func SetupMainSceneLoad():
+	GlobalVariables.cursor_state_after_toggle = false
 	cursor.SetCursor(false, false)
 	speaker_music.stop()
 	speaker_enter_main.play()
@@ -295,6 +294,7 @@ func ExitToMainMenu():
 	playing_info_change_sound = false
 	lobby.leave_lobby()
 	speaker_music.stop()
+	GlobalVariables.cursor_state_after_toggle = false
 	cursor.SetCursor(false, false)
 	speaker_exit.play()
 	animator_intro.play("outro cut out")

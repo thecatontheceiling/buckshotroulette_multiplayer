@@ -53,11 +53,13 @@ func PacketSort(dict : Dictionary):
 				"direction_to_look": dict.direction_to_look,
 			}
 		"grab item request":
-			var item_to_grab = game_state.GetItemToGrab(GetSocketProperties(dict.sent_from_socket))
+			var item_to_grab = game_state.GetItemToGrab(GetSocketProperties(dict.sent_from_socket), true)
+			if item_to_grab == null: return
 			#debug here1
 			#var debug_properties = GetSocketProperties(dict.sent_from_socket)
 			#var temp = [3, 3, 2, 8, 5, 6, 8, 9]
-			#temp = [2, 2, 2, 4, 5, 6, 8, 9, 10]
+			#temp = [8, 2, 2, 2, 2, 2, 2, 2, 2]
+			#if dict.sent_from_socket != 0: temp = [2, 2, 2, 2, 2]
 			#debug_properties.debug_index += 1
 			#if debug_properties.debug_index == temp.size(): debug_properties.debug_index = 0
 			#item_to_grab = temp[debug_properties.debug_index]
@@ -72,9 +74,11 @@ func PacketSort(dict : Dictionary):
 			}
 		"place item request":
 			var is_last_item = game_state.IsPlacingLastItem(GetSocketProperties(dict.sent_from_socket))
+			var sockets_ending_item_grabbing = []
 			if is_last_item:
 				game_state.MAIN_active_num_of_users_finished_item_grabbing += 1
 				game_state.CheckIfItemGrabbingFinishedForAllUsers()
+				sockets_ending_item_grabbing = game_state.GetSocketArrayToEndItemGrabbingOn(dict.sent_from_socket)
 			packet = {
 				"packet category": "MP_UserInstanceProperties",
 				"packet alias": "place item",
@@ -83,6 +87,7 @@ func PacketSort(dict : Dictionary):
 				"socket_number": dict.sent_from_socket,
 				"local_grid_index": dict.local_grid_index,
 				"is_last_item": is_last_item,
+				"sockets_ending_item_grabbing": sockets_ending_item_grabbing,
 			}
 		"interact with item request":
 			packet = {

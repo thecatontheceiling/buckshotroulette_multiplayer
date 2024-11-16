@@ -72,12 +72,41 @@ func ShowMatchResults():
 
 func SetupStatistics():
 	var dots = "........................................................"
-	label_most_damage.text = tr("MP_UI MOST DAMAGE") + dots; label_most_damage.get_child(2).text = intermed.game_state.MAIN_active_match_result_statistics.name_most_damage
-	label_most_deaths.text = tr("MP_UI MOST DEATHS") + dots; label_most_deaths.get_child(2).text = intermed.game_state.MAIN_active_match_result_statistics.name_most_deaths
-	label_the_chimney.text = tr("MP_UI THE CHIMNEY") + dots; label_the_chimney.get_child(2).text = intermed.game_state.MAIN_active_match_result_statistics.name_the_chimney
-	label_least_careful.text = tr("MP_UI LEAST CAREFUL") + dots; label_least_careful.get_child(2).text = intermed.game_state.MAIN_active_match_result_statistics.name_least_careful
-	label_most_resourceful.text = tr("MP_UI MOST RESOURCEFUL") + dots; label_most_resourceful.get_child(2).text = intermed.game_state.MAIN_active_match_result_statistics.name_most_resourceful
-	label_the_wealthiest.text = tr("MP_UI THE WEALTHIEST") + dots; label_the_wealthiest.get_child(2).text = intermed.game_state.MAIN_active_match_result_statistics.name_the_wealthiest
+	
+	var name_most_damage = ""
+	var name_most_deaths = ""
+	var name_the_chimney = ""
+	var name_least_careful = ""
+	var name_most_resourceful = ""
+	var name_the_wealthiest = ""
+	
+	if !GlobalVariables.mp_debugging:
+		if intermed.game_state.MAIN_active_match_result_statistics.id_most_damage != -1: name_most_damage = Steam.getFriendPersonaName(intermed.game_state.MAIN_active_match_result_statistics.id_most_damage)
+		else: name_most_damage = "N/A"
+		if intermed.game_state.MAIN_active_match_result_statistics.id_most_deaths != -1: name_most_deaths = Steam.getFriendPersonaName(intermed.game_state.MAIN_active_match_result_statistics.id_most_deaths)
+		else: name_most_deaths = "N/A"
+		if intermed.game_state.MAIN_active_match_result_statistics.id_the_chimney != -1: name_the_chimney = Steam.getFriendPersonaName(intermed.game_state.MAIN_active_match_result_statistics.id_the_chimney)
+		else: name_the_chimney = "N/A"
+		if intermed.game_state.MAIN_active_match_result_statistics.id_least_careful != 1: name_least_careful = Steam.getFriendPersonaName(intermed.game_state.MAIN_active_match_result_statistics.id_least_careful)
+		else: name_least_careful = "N/A"
+		if intermed.game_state.MAIN_active_match_result_statistics.id_most_resourceful != -1: name_most_resourceful = Steam.getFriendPersonaName(intermed.game_state.MAIN_active_match_result_statistics.id_most_resourceful)
+		else: name_most_resourceful = "N/A"
+		if intermed.game_state.MAIN_active_match_result_statistics.id_the_wealthiest != -1: name_the_wealthiest = Steam.getFriendPersonaName(intermed.game_state.MAIN_active_match_result_statistics.id_the_wealthiest)
+		else: name_the_wealthiest = "N/A"
+	else:
+		name_most_damage = str(intermed.game_state.MAIN_active_match_result_statistics.id_most_damage)
+		name_most_deaths = str(intermed.game_state.MAIN_active_match_result_statistics.id_most_deaths)
+		name_the_chimney = str(intermed.game_state.MAIN_active_match_result_statistics.id_the_chimney)
+		name_least_careful = str(intermed.game_state.MAIN_active_match_result_statistics.id_least_careful)
+		name_most_resourceful = str(intermed.game_state.MAIN_active_match_result_statistics.id_most_resourceful)
+		name_the_wealthiest = str(intermed.game_state.MAIN_active_match_result_statistics.id_the_wealthiest)
+	
+	label_most_damage.text = tr("MP_UI MOST DAMAGE") + dots; label_most_damage.get_child(2).text = name_most_damage
+	label_most_deaths.text = tr("MP_UI MOST DEATHS") + dots; label_most_deaths.get_child(2).text = name_most_deaths
+	label_the_chimney.text = tr("MP_UI THE CHIMNEY") + dots; label_the_chimney.get_child(2).text = name_the_chimney
+	label_least_careful.text = tr("MP_UI LEAST CAREFUL") + dots; label_least_careful.get_child(2).text = name_least_careful
+	label_most_resourceful.text = tr("MP_UI MOST RESOURCEFUL") + dots; label_most_resourceful.get_child(2).text = name_most_resourceful
+	label_the_wealthiest.text = tr("MP_UI THE WEALTHIEST") + dots; label_the_wealthiest.get_child(2).text = name_the_wealthiest
 
 var count = 10.9
 var counting = false

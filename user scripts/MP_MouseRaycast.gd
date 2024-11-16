@@ -12,6 +12,7 @@ var eventpos : Vector2
 var pos_previous : Vector2
 var velocity : Vector2
 var getting_selection = true
+var mouse_raycast_previously_active = true
 
 func _input(event):
 	if event is InputEventMouse && properties.is_active:
@@ -29,6 +30,7 @@ func _process(delta):
 		get_selection()
 
 func SetMouseRaycast(state : bool):
+	mouse_raycast_previously_active = state
 	getting_selection = state
 	properties.interaction.checking = state
 	if !state:

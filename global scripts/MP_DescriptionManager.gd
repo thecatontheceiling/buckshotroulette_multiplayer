@@ -12,6 +12,7 @@ var current_opacity = 0.0
 var next_opacity = 1.0
 
 var started = false
+var desc_visible = false
 
 func _ready():
 	intermediary = get_node("/root/mp_main/standalone managers/interactions/interaction intermediary")
@@ -24,7 +25,7 @@ func _process(delta):
 func HideText():
 	for i in range(uiArray.size()):
 		uiArray[i].modulate.a = 0
-	pass
+	desc_visible = false
 
 func CheckInteraction():
 	if (intermediary.intermed_activeParent != null):
@@ -39,19 +40,19 @@ func CheckInteraction():
 			started = false
 
 func BeginLerp():
+	desc_visible = true
 	started = true
 	current_opacity = uiArray[0].modulate.a
 	next_opacity = 1.0
 	elapsed = 0.0
 	moving = true
-	pass
 	
 func EndLerp():
+	desc_visible = false
 	current_opacity = uiArray[0].modulate.a
 	next_opacity = 0.0
 	elapsed = 0.0
 	moving = true
-	pass
 	
 func LerpText():
 	if (moving):
@@ -61,4 +62,3 @@ func LerpText():
 		for i in range(uiArray.size()):
 			var color = Color(uiArray[i].modulate.r, uiArray[i].modulate.g, uiArray[i].modulate.b, opacity)
 			uiArray[i].modulate = color
-	pass

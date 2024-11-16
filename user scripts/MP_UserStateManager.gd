@@ -14,12 +14,22 @@ class_name MP_UserStateManager extends Node
 func _ready():
 	SetState()
 
+func _unhandled_input(event):
+	if event.is_action_pressed("m") && GlobalVariables.mp_debugging:
+		nametag.visible = !nametag.visible
+
 func SetState():
 	for i in array_outside_obj: i.visible = !properties.is_active
 	for i in array_outside_ui: i.visible = !properties.is_active
 	for i in array_inside_obj: i.visible = properties.is_active
 	for i in array_inside_ui: i.visible = properties.is_active
-	if (nametag != null): nametag.text = properties.user_name.left(19)
+	var visible_name = ""
+	if nametag != null: 
+		if !GlobalVariables.mp_debugging:
+			visible_name = Steam.getFriendPersonaName(properties.user_id)
+		else:
+			visible_name = properties.user_name
+		nametag.text = visible_name.left(19)
 	#cam.current = properties.is_active
 
 func SetCameraAsCurrent():

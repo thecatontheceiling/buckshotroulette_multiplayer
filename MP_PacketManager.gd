@@ -1,6 +1,7 @@
 class_name PacketManager extends Node
 
 @export var lobby_ui : MP_LobbyUI
+@export var match_customization : MP_MatchCustomization
 @export_group("mp_main")
 @export var game_state : MP_GameStateManager
 @export var lobby : LobbyManager
@@ -159,6 +160,8 @@ func PipeData(dict : Dictionary):
 			lobby.ReceivePacket_VersionCheck(dict, temp_id)
 		"version response":
 			lobby.ReceivePacket_VersionResponse(dict)
+		"update match customization":
+			match_customization.ReceivePacket_MatchCustomization(dict)
 
 func _on_p2p_session_request(remote_id: int) -> void:
 	# Get the requester's name

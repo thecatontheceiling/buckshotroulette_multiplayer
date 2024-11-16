@@ -41,6 +41,10 @@ var MAIN_active_user_id_exceeded_secondary_timeout_array : Array[int]
 var MAIN_active_user_id_exceeded_turn_timeout_array : Array[int]
 var MAIN_active_timeout_packet_id_array : Array[int] = [10, 12, 15, 17, 19, 22, 24]
 var MAIN_active_environmental_event : String = ""
+var MAIN_item_grabbing_in_progress : bool
+var MAIN_active_sequence_index_to_pull = 0
+var MAIN_is_start_of_new_round : bool
+var MAIN_shotgun_loading_in_progress : bool
 
 var MAIN_inventory_by_socket = []
 # socket 0: [{  }, {  }, {  }, {  }, {  }, {  }, {  }, {  }]
@@ -53,17 +57,7 @@ var MAIN_inventory_by_socket = []
 #	"item_instance" = item parent object,
 #	"item_id" = item id,
 #}
-var MAIN_inventory_by_socket_counting = []
-# socket 0: [{  }, {  }, {  }, {  }, {  }, {  }, {  }, {  }]
-# socket 1: [{  }, {  }, {  }, {  }, {  }, {  }, {  }, {  }]
-# socket 2: [{  }, {  }, {  }, {  }, {  }, {  }, {  }, {  }]
-# socket 3: [{  }, {  }, {  }, {  }, {  }, {  }, {  }, {  }]
-# MAIN_inventory_by_socket[socket_number][local_grid_index]
-#var dict = {
-#	"item_name" = item name,
-#	"item_instance" = item parent object,
-#	"item_id" = item id,
-#}
+var global_item_count_on_table_by_id = []
 
 var MAIN_shell_visible_to_eject : String
 var MAIN_barrel_sawed_off = false
@@ -72,6 +66,7 @@ func _ready():
 	MAIN_active_running_intro = !skipping_intro
 	SetupInventory()
 	MakeSequenceCopies()
+	SetupEmptyGlobalItemCount()
 	if GlobalVariables.exiting_to_lobby_after_inactivity:
 		pinging_mouse_pos = true
 		PingMousePosition()
@@ -80,6 +75,11 @@ func _ready():
 func _process(delta):
 	if GlobalVariables.exiting_to_lobby_after_inactivity:
 		CountInactivity()
+
+func SetupEmptyGlobalItemCount():
+	global_item_count_on_table_by_id = []
+	for item_id in 11:
+		global_item_count_on_table_by_id.append(0)
 
 var mouse_pos
 func _input(event):
@@ -127,6 +127,25 @@ func MakeSequenceCopies():
 	MAIN_active_sequence_batch_array_copy_in_use_for_3 = MAIN_sequence_batch_array_for_3.duplicate()
 	MAIN_active_sequence_batch_array_copy_in_use_for_4 = MAIN_sequence_batch_array_for_4.duplicate()
 
+func IncrementActiveSequenceIndex(overriding_with_value : int = -1):
+	if overriding_with_value == -1:
+		MAIN_active_sequence_index_to_pull += 1
+		if MAIN_active_sequence_index_to_pull == 4:
+			MAIN_active_sequence_index_to_pull = 0
+	else:
+		MAIN_active_sequence_index_to_pull = overriding_with_value
+
+func SetItemDistributionVariablesFromCustomization(for_round_index : int):
+	var active = GlobalVariables.active_match_customization_dictionary.duplicate(true)
+	for round in active.round_property_array:
+		if round.round_index == for_round_index:
+			for item_property in round.item_properties:
+				for item_resource in MAIN_item_resource_array:
+					if item_property.item_id == item_resource.id:
+						item_resource.max_amount_on_table = item_property.max_per_player
+						item_resource.max_amount_on_table_global = item_property.max_on_table
+						item_resource.distribution_enabled = item_property.is_ingame
+
 func Global_AddItemToInventory(socket_number : int, instance : Node3D, item_id : int, local_grid_index : int):
 	var item_name = instance.get_child(1).itemName
 	var dict = {
@@ -140,13 +159,14 @@ func Global_RemoveItemFromInventory(socket_number : int, local_grid_index):
 	for property in instance_handler.instance_property_array:
 		if property.socket_number == socket_number:
 			property.user_inventory_count_by_item_id[MAIN_inventory_by_socket[socket_number][local_grid_index].item_id] -= 1
+	global_item_count_on_table_by_id[MAIN_inventory_by_socket[socket_number][local_grid_index].item_id] -= 1
 	MAIN_inventory_by_socket[socket_number][local_grid_index] = {}
 
 func Global_ClearInventoryDictionaries(socket_number : int):
 	for i in range(MAIN_inventory_by_socket[socket_number].size()):
 		MAIN_inventory_by_socket[socket_number][i] = {}
 
-func GetItemToGrab(for_user : MP_UserInstanceProperties):
+func GetItemToGrab(for_user : MP_UserInstanceProperties, incrementing_inventory : bool = false):
 	var resource_pool_main : Array[MP_ItemResource]
 	var id_pool_available_to_grab : Array[int]
 	var id_pool_globally_eligible : Array[int]
@@ -157,26 +177,56 @@ func GetItemToGrab(for_user : MP_UserInstanceProperties):
 			resource_pool_main.erase(res)
 	for res in resource_pool_main:
 		var total_res_count = 0
-		var t = false
-		for property in instance_handler.instance_property_array:
-			total_res_count += property.user_inventory_count_by_item_id[res.id]
+		total_res_count = global_item_count_on_table_by_id[res.id]
 		if total_res_count < res.max_amount_on_table_global:
 			id_pool_globally_eligible.append(res.id)
-			t = true
 	for res in resource_pool_main:
 		if for_user.user_inventory_count_by_item_id[res.id] < res.max_amount_on_table:
-			if id_pool_globally_eligible.size() == 1:
-				id_pool_available_to_grab.append(res.id)
-				break
 			if res.id in id_pool_globally_eligible:
 				id_pool_available_to_grab.append(res.id)
 	var item_id_to_grab
-	if id_pool_available_to_grab.size() == 1:
-		item_id_to_grab = id_pool_available_to_grab[0]
-	else:
-		item_id_to_grab = id_pool_available_to_grab[randi_range(0, id_pool_available_to_grab.size() - 1)]
-	for_user.user_inventory_count_by_item_id[item_id_to_grab] += 1
+	if id_pool_available_to_grab != []:
+		if id_pool_available_to_grab.size() == 1:
+			item_id_to_grab = id_pool_available_to_grab[0]
+		else:
+			item_id_to_grab = id_pool_available_to_grab[randi_range(0, id_pool_available_to_grab.size() - 1)]
+	if item_id_to_grab != null && incrementing_inventory:
+		for_user.user_inventory_count_by_item_id[item_id_to_grab] += 1
+		global_item_count_on_table_by_id[item_id_to_grab] += 1
 	return item_id_to_grab
+	
+	#var resource_pool_main : Array[MP_ItemResource]
+	#var id_pool_available_to_grab : Array[int]
+	#var id_pool_globally_eligible : Array[int]
+	#for res in MAIN_item_resource_array:
+	#	if res.distribution_enabled:
+	#		resource_pool_main.append(res)
+	#	if res.id == 10 && instance_handler.instance_property_array.size() == 2:
+	#		resource_pool_main.erase(res)
+	#for res in resource_pool_main:
+	#	var total_res_count = 0
+	#	var t = false
+	#	for property in instance_handler.instance_property_array:
+	#		total_res_count += property.user_inventory_count_by_item_id[res.id]
+	#		print("res id: ", res.id, " user inventory count for this id: ", property.user_inventory_count_by_item_id[res.id])
+	#	if total_res_count < res.max_amount_on_table_global:
+	#		print("ITEM NAME: ", res.name ," total res count: ", total_res_count, " max amount on table global: ", res.max_amount_on_table_global)
+	#		id_pool_globally_eligible.append(res.id)
+	#		t = true
+	#for res in resource_pool_main:
+	#	print("for user inventory count by item id: ", for_user.user_inventory_count_by_item_id[res.id], " res max amount on table: ", res.max_amount_on_table)
+	#	if for_user.user_inventory_count_by_item_id[res.id] < res.max_amount_on_table:
+	#		if res.id in id_pool_globally_eligible:
+	#			id_pool_available_to_grab.append(res.id)
+	#var item_id_to_grab
+	#print("id pool available to grab: ", id_pool_available_to_grab)
+	#if id_pool_available_to_grab != []:
+	#	if id_pool_available_to_grab.size() == 1:
+	#		item_id_to_grab = id_pool_available_to_grab[0]
+	#	else:
+	#		item_id_to_grab = id_pool_available_to_grab[randi_range(0, id_pool_available_to_grab.size() - 1)]
+	#	for_user.user_inventory_count_by_item_id[item_id_to_grab] += 1
+	#return item_id_to_grab
 
 func CheckIfEndingTurnAfterItemUse(item_id : int, for_socket_number : int):
 	var property = GetSocketProperties(for_socket_number)
@@ -215,20 +265,28 @@ func CheckIfEndingTurnAfterItemUse(item_id : int, for_socket_number : int):
 
 func IsPlacingLastItem(user_properties : MP_UserInstanceProperties):
 	var count = 0
+	if GetItemToGrab(user_properties, false) == null:
+		user_properties.is_grabbing_items = false
+		return true
 	for dict in user_properties.user_inventory:
 		if dict != {}:
 			count += 1
 	count += 1
 	if count == 8: 
 		user_properties.is_grabbing_items = false
+		print(user_properties.socket_number, " is placing last item.")
 		return true
 	if user_properties.num_of_items_currently_grabbed >= MAIN_active_num_of_items_to_grab:
 		user_properties.is_grabbing_items = false
+		print(user_properties.socket_number, " is placing last item.")
 		return true
+	print(user_properties.socket_number, " is not placing last item.")
 	return false
 
+var item_grabbing_finished_for_all_users_checked = false
 func CheckIfItemGrabbingFinishedForAllUsers():
-	var finished = MAIN_active_num_of_users_finished_item_grabbing >= MAIN_active_num_of_users_grabbing_items
+	if item_grabbing_finished_for_all_users_checked: return
+	var finished = false
 	print("num of users finished: ", MAIN_active_num_of_users_finished_item_grabbing, " num of users grabbing: ", MAIN_active_num_of_users_grabbing_items)
 	var count_finished_grabbing = 0
 	var count_instances = instance_handler.instance_property_array.size()
@@ -236,9 +294,51 @@ func CheckIfItemGrabbingFinishedForAllUsers():
 		if !property.is_grabbing_items:
 			count_finished_grabbing += 1
 	finished = count_finished_grabbing == count_instances
+	var properties_that_have_no_more_items_to_grab = 0
+	for property in instance_handler.instance_property_array:
+		if GetItemToGrab(property, false) == null:
+			properties_that_have_no_more_items_to_grab += 1
+	print("properties no more items to grab: ", properties_that_have_no_more_items_to_grab, " count instances: ", count_instances)
+	if properties_that_have_no_more_items_to_grab == count_instances:
+		finished = true
 	if finished:
+		MAIN_item_grabbing_in_progress = false
+		item_grabbing_finished_for_all_users_checked = true
 		await get_tree().create_timer(2, false).timeout
 		round_manager.MainRoutine_LoadShotgun()
+
+func GetSocketsToBeginItemGrabbingOn(inventories_cleared : bool = false):
+	var socket_array_to_return = []
+	print("getting sockets to begin item grabbing on. inventories cleared: ", inventories_cleared)
+	for property in instance_handler.instance_property_array:
+		if property.health_current != 0 or MAIN_is_start_of_new_round or inventories_cleared:
+			print("checking property items")
+			var num_of_items_in_inventory = 0
+			for dict in property.user_inventory:
+				if dict != {}:
+					num_of_items_in_inventory += 1
+			print("num of items: ", num_of_items_in_inventory, " inventories cleared: ", inventories_cleared)
+			if num_of_items_in_inventory != 8 or inventories_cleared:
+				if GetItemToGrab(property, false) != null:
+					print("appending property: ", property.socket_number)
+					socket_array_to_return.append(property.socket_number)
+	
+	if MAIN_active_num_of_items_to_grab == 0:
+		print("number of items to grab is set to 0. clearing array")
+		socket_array_to_return = []
+	print("returning array: ", socket_array_to_return)
+	return socket_array_to_return
+
+func GetSocketArrayToEndItemGrabbingOn(excluding_socket_number : int = -1):
+	var array_to_return = []
+	for property in instance_handler.instance_property_array:
+		print("property name: ", property.user_name, " is grabbing items: ", property.is_grabbing_items)
+		if property.is_grabbing_items && !property.is_holding_item_to_place:
+			if property.socket_number != excluding_socket_number:
+				if GetItemToGrab(property, false) == null:
+					array_to_return.append(property.socket_number)
+	print("socket array to end item grabbing on: ", array_to_return)
+	return array_to_return
 
 func CheckIfAllInventoriesAreFull():
 	var full_inventory_count = 0
@@ -256,6 +356,16 @@ func CheckIfAllInventoriesAreFull():
 	var all_inventories_full : bool = full_inventory_count == alive_user_property_array.size()
 	print("all inventories full: ", all_inventories_full)
 	return all_inventories_full
+
+func FreeLookCameraForAllUsers_Enable():
+	for property in instance_handler.instance_property_array:
+		property.is_allowed_to_free_look = true
+
+func FreeLookCameraForAllUsers_Disable():
+	for property in instance_handler.instance_property_array:
+		property.is_allowed_to_free_look = false
+		if property.camera_look.looking_active:
+			property.camera_look.EndCameraLook()
 
 func GetPropertyInvalidItems(user_properties : MP_UserInstanceProperties):
 	#items that can be set invalid:
@@ -438,12 +548,12 @@ func PrintInventory():
 		print("")
 
 func GetMatchResultStatistics():
-	var name_most_damage = ""
-	var name_most_deaths = ""
-	var name_the_chimney = ""
-	var name_least_careful = ""
-	var name_most_resourceful = ""
-	var name_the_wealthiest = ""
+	var id_most_damage = -1
+	var id_most_deaths = -1
+	var id_the_chimney = -1
+	var id_least_careful = -1
+	var id_most_resourceful = -1
+	var id_the_wealthiest = -1
 	
 	var dict_array_most_damage = []
 	var dict_array_most_deaths = []
@@ -454,26 +564,26 @@ func GetMatchResultStatistics():
 	
 	for property in instance_handler.instance_property_array:
 		var dict
-		dict = { "stat": property.stat_damage_dealt, "name": property.user_name}; dict_array_most_damage.append(dict)
-		dict = { "stat": property.stat_number_of_deaths, "name": property.user_name}; dict_array_most_deaths.append(dict)
-		dict = { "stat": property.stat_number_of_cigarettes_smoked, "name": property.user_name}; dict_array_the_chimney.append(dict)
-		dict = { "stat": property.stat_number_of_times_shot_self_with_live, "name": property.user_name}; dict_array_least_careful.append(dict)
-		dict = { "stat": property.stat_number_of_items_used, "name": property.user_name}; dict_array_most_resourceful.append(dict)
-		dict = { "stat": property.stat_amount_of_cash_earned, "name": property.user_name}; dict_array_the_wealthiest.append(dict)
-	name_most_damage = GetMaxDictionary_Name(dict_array_most_damage)
-	name_most_deaths = GetMaxDictionary_Name(dict_array_most_deaths)
-	name_the_chimney = GetMaxDictionary_Name(dict_array_the_chimney)
-	name_least_careful = GetMaxDictionary_Name(dict_array_least_careful)
-	name_most_resourceful = GetMinDictionary_Name(dict_array_most_resourceful)
-	name_the_wealthiest = GetMaxDictionary_Name(dict_array_the_wealthiest)
+		dict = { "stat": property.stat_damage_dealt, "user_id": property.user_id}; dict_array_most_damage.append(dict)
+		dict = { "stat": property.stat_number_of_deaths, "user_id": property.user_id}; dict_array_most_deaths.append(dict)
+		dict = { "stat": property.stat_number_of_cigarettes_smoked, "user_id": property.user_id}; dict_array_the_chimney.append(dict)
+		dict = { "stat": property.stat_number_of_times_shot_self_with_live, "user_id": property.user_id}; dict_array_least_careful.append(dict)
+		dict = { "stat": property.stat_number_of_items_used, "user_id": property.user_id}; dict_array_most_resourceful.append(dict)
+		dict = { "stat": property.stat_amount_of_cash_earned, "user_id": property.user_id}; dict_array_the_wealthiest.append(dict)
+	id_most_damage = GetMaxDictionary_Name(dict_array_most_damage)
+	id_most_deaths = GetMaxDictionary_Name(dict_array_most_deaths)
+	id_the_chimney = GetMaxDictionary_Name(dict_array_the_chimney)
+	id_least_careful = GetMaxDictionary_Name(dict_array_least_careful)
+	id_most_resourceful = GetMinDictionary_Name(dict_array_most_resourceful)
+	id_the_wealthiest = GetMaxDictionary_Name(dict_array_the_wealthiest)
 	
 	var match_result_statistics = {
-		"name_most_damage": name_most_damage,
-		"name_most_deaths": name_most_deaths,
-		"name_the_chimney": name_the_chimney,
-		"name_least_careful": name_least_careful,
-		"name_most_resourceful": name_most_resourceful,
-		"name_the_wealthiest": name_the_wealthiest,
+		"id_most_damage": id_most_damage,
+		"id_most_deaths": id_most_deaths,
+		"id_the_chimney": id_the_chimney,
+		"id_least_careful": id_least_careful,
+		"id_most_resourceful": id_most_resourceful,
+		"id_the_wealthiest": id_the_wealthiest,
 	}
 	return match_result_statistics
 	
@@ -486,9 +596,9 @@ func GetMaxDictionary_Name(dict_array):
 			highest_value = stat_value
 			dict_to_return = dict
 	if highest_value != 0:
-		return dict_to_return.name
+		return dict_to_return.user_id
 	else:
-		return "N/A"
+		return -1
 
 func GetMinDictionary_Name(dict_array):
 	var lowest_value = 1000000
@@ -499,9 +609,9 @@ func GetMinDictionary_Name(dict_array):
 			lowest_value = stat_value
 			dict_to_return = dict
 	if lowest_value != 1000000:
-		return dict_to_return.name
+		return dict_to_return.user_id
 	else:
-		return "N/A"
+		return -1
 
 
 

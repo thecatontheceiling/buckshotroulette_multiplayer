@@ -16,8 +16,11 @@ class_name MP_UserInstanceProperties extends Node
 @export var is_holding_item_to_place : bool
 @export var is_interacting_with_item : bool
 @export var is_on_secondary_interaction : bool
+@export var is_on_jammer_selection : bool
 @export var is_viewing_jammer : bool
 @export var is_holding_shotgun : bool
+@export var is_being_revived : bool
+@export var is_allowed_to_free_look : bool = false
 @export var user_inventory : Array[Dictionary] = [{},{},{},{},{},{},{},{}]
 @export var user_inventory_instance_array : Array[Node3D] = [null,null,null,null,null,null,null,null]
 @export var user_inventory_count_by_item_id : Array[int]
@@ -54,6 +57,7 @@ class_name MP_UserInstanceProperties extends Node
 @export var item_manager : MP_ItemManager
 @export var item_interaction : MP_ItemInteraction
 @export var item_stealing : MP_ItemStealing
+@export var camera_look : MP_UserCameraLook
 @export var dialogue : MP_Dialogue
 @export var burner_phone : MP_BurnerPhone
 @export var jammer_manager : MP_Jammer
@@ -69,6 +73,7 @@ class_name MP_UserInstanceProperties extends Node
 @export var btn_shotgun : Control
 @export var bp_adrenaline : Control
 @export var btn_adrenaline_first : Control
+@export var controller_prompts_parent : Control
 var intermediary : MP_InteractionIntermed
 var debug_index = -1
 var original_volume_interaction_bus_db : float
@@ -82,6 +87,7 @@ var lerp_bus_music_start_linear = 0
 var lerp_bus_music_end_linear = 0
 var original_volume_linear_interaction = 0
 var original_volume_linear_music = 0
+var running_fast_revival = false
 
 var stat_damage_dealt : int
 var stat_number_of_deaths : int
@@ -131,6 +137,14 @@ func PacketSort(dict : Dictionary):
 			item_interaction.ReceivePacket_InteractWithItem_Secondary(dict)
 		"timeout exceeded":
 			ReceivePacket_TimeoutExceeded(dict)
+
+func FreeLookCameraForUser_Enable():
+	is_allowed_to_free_look = true
+
+func FreeLookCameraForUser_Disable():
+	is_allowed_to_free_look = false
+	if camera_look.looking_active:
+		camera_look.EndCameraLook()
 
 func SetTurnControllerPrompts(state : bool):
 	if state:
@@ -323,7 +337,7 @@ func ReceivePacket_TimeoutExceeded(packet : Dictionary):
 					intermediary.roundManager.PassTurn(packet.next_turn_socket)
 		"item distribution":
 			if socket_number == packet.socket_number:
-				item_manager.EndItemGrabbingAfterTimeoutä()
+				item_manager.EndItemGrabbingAfterTimeout()
 		"turn":
 			if socket_number == packet.socket_number:
 				permissions.SetMainPermission(false)

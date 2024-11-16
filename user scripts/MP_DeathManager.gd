@@ -34,6 +34,8 @@ func DeathRequest(shot_from_direction : String = ""):
 func UserDeath_FirstPerson():
 	user_returned_from_death = false
 	await get_tree().create_timer(.1, false).timeout
+	properties.FreeLookCameraForUser_Disable()
+	properties.is_being_revived = true
 	properties.viewblocker.Snap_Opaque()
 	properties.MuteAudioOnDeath()
 	speaker_glimpse.pitch_scale = randf_range(.8, 1)
@@ -43,6 +45,7 @@ func UserDeath_FirstPerson():
 	if properties.health_current == 0:
 		UserDeath_EnterSpectatorMode()
 		properties.health_counter.UpdateDisplay()
+		properties.is_being_revived = false
 	else:
 		UserDeath_Revive()
 
@@ -56,6 +59,7 @@ func UserDeath_ThirdPerson(shot_from_direction : String = "ˇ"):
 	properties.health_counter.UpdateDisplay()
 	if properties.health_current == 0:
 		UserDeath_EnterSpectatorMode()
+		properties.FreeLookCameraForUser_Enable()
 		return
 	else:
 		UserDeath_Revive()
@@ -67,7 +71,8 @@ func PlaySound_CorpseFall():
 
 func UserDeath_Revive(reviving_from_spectator : bool = false):
 	if properties.is_active: DefibRevive()
-	await get_tree().create_timer(2.6, false).timeout
+	if !properties.running_fast_revival:
+		await get_tree().create_timer(1.3, false).timeout
 	StopHandBobbing()
 	animator_death_thirdperson.play("user return from death thirdperson")
 	if !properties.is_active: speaker_revive.play()
@@ -103,11 +108,15 @@ func DefibRevive():
 	properties.intermediary.filter.PanLowPass_In()
 	await get_tree().create_timer(.8, false).timeout
 	anim_defib.play("move away")
+	await get_tree().create_timer(1, false).timeout
+	properties.FreeLookCameraForUser_Enable()
+	properties.is_being_revived = false
 
 func UserDeath_EnterSpectatorMode():
 	if properties.is_active:
 		properties.is_spectating = true
-		properties.intermediary.post_processing.environment.adjustment_saturation = 0.0
+		if GlobalVariables.greyscale_death:
+			properties.intermediary.post_processing.environment.adjustment_saturation = 0.0
 		await get_tree().create_timer(.7, false).timeout
 		properties.FadeInAudioBus()
 		properties.viewblocker.FadeOut(1.5, -1.8)

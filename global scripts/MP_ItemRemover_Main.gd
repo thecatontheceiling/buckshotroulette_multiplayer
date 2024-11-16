@@ -42,6 +42,8 @@ func RemoveItemsFromSockets(sockets_to_remove_items_at): #array[int]
 		for c in range(game_state.MAIN_inventory_by_socket[sockets_to_remove_items_at[i]].size()):
 			if game_state.MAIN_inventory_by_socket[sockets_to_remove_items_at[i]][c] != {}:
 				items_to_delete_array.append(game_state.MAIN_inventory_by_socket[sockets_to_remove_items_at[i]][c].item_instance)
+	#clear global item count array in the game state
+	game_state.SetupEmptyGlobalItemCount()
 	#lerp cameras
 	for property in game_state.instance_handler.instance_property_array:
 		property.cam.BeginLerp("home")

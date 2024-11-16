@@ -153,6 +153,7 @@ func SetBlinkerState(index : int, resetting : bool):
 	selected_target_is_valid = is_valid
 
 func ConfirmButton():
+	properties.is_on_jammer_selection = false
 	if !selected_target_is_valid: 
 		return
 
@@ -220,7 +221,9 @@ func SetValidTargets():
 
 func BootupFinished():
 	SetValidTargets()
+	GlobalVariables.cursor_state_after_toggle = true
 	properties.permissions.cursor.SetCursor(true, true)
+	properties.is_on_jammer_selection = true
 	SetJammerControllerPrompts(true)
 
 func SetJammerControllerPrompts(state : bool):

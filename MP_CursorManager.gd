@@ -14,8 +14,11 @@ var cursor_visible = false
 var controller_active = false
 var checking_options = false
 var cursor_visible_after_toggle = false
+var previously_visible = false
 
+var setting_previously_visible = true
 func SetCursor(isVisible : bool, playSound : bool):
+	previously_visible = isVisible
 	if !checking_options: cursor_visible_after_toggle = isVisible
 	if is_lobby_scene:
 		cursor_visible = isVisible
@@ -27,17 +30,20 @@ func SetCursor(isVisible : bool, playSound : bool):
 			Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 		return
 	if (properties.is_active):
+		if !checking_options:
+			cursor_visible = isVisible
 		if properties.intermediary.ingame_lobby_ui.viewing_ui && !properties.intermediary.ingame_lobby_ui.ignoring_viewing:
+			return
+		if properties.camera_look.looking_active:
 			return
 		if (playSound): speaker.play()
 		if (isVisible):
 			if (!controller_active): Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 			else: Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
-			if !checking_options: cursor_visible = true
+			#if !checking_options: cursor_visible = true
 		if (!isVisible):
 			Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
-			if !checking_options: cursor_visible = false
-		checking_options = false
+			#if !checking_options: cursor_visible = false
 
 func SetCursorImage(alias : String):
 	if is_lobby_scene:
