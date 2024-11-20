@@ -8,4 +8,4 @@ Trolling tutorial:
 
 (Since the official release of multiplayer, you can make sequence_in_shotgun appear in the console on demand by using an item
 
-Also, manipulating multiplayer games (even when you're not the host!) using specially crafted packets is trivially easy. Just as an example, you can force anyone to shoot themselves, or always be able to steak others items. I encourage you to look through the code and figure out more exploits :)
+Also, manipulating multiplayer games (even when you're not the host!) using specially crafted packets is trivially easy. Just as an example, you can force anyone to shoot themselves, or always be able to steal others items. I encourage you to look through the code and figure out more exploits :)
