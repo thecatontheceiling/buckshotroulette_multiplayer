@@ -21,6 +21,12 @@ var MAIN_active_sequence_batch_array_copy_in_use_for_4 : Array[MP_SequenceBatchR
 
 var MAIN_active_round_dict : Dictionary
 var MAIN_active_sequence_dict : Dictionary
+var MAIN_active_sequence_dict_send : Dictionary
+var MAIN_shooter_shell : String
+var MAIN_shell_to_eject : String
+var MAIN_sequence_length_on_outcome : int
+var MAIN_phone_verbal_shell : String
+var MAIN_phone_verbal_index : int
 var MAIN_active_first_turn_socket : int
 var MAIN_active_turn_order : String = "CW"
 var MAIN_active_round_index : int = -1
@@ -45,6 +51,7 @@ var MAIN_item_grabbing_in_progress : bool
 var MAIN_active_sequence_index_to_pull = 0
 var MAIN_is_start_of_new_round : bool
 var MAIN_shotgun_loading_in_progress : bool
+var MAIN_running_win_routine : bool
 
 var MAIN_inventory_by_socket = []
 # socket 0: [{  }, {  }, {  }, {  }, {  }, {  }, {  }, {  }]
@@ -357,6 +364,26 @@ func CheckIfAllInventoriesAreFull():
 	print("all inventories full: ", all_inventories_full)
 	return all_inventories_full
 
+func GetBurnerPhone_VerbalIndex():
+	var current_sequence = MAIN_active_sequence_dict.sequence_in_shotgun
+	var verbal_index = 0
+	if current_sequence.size() <= 2:
+		verbal_index = -1
+	else:
+		var randindex = randi_range(2, current_sequence.size() - 1)
+		verbal_index = randindex; verbal_index += 1
+	return verbal_index
+
+func GetBurnerPhone_Shell():
+	var current_sequence = MAIN_active_sequence_dict.sequence_in_shotgun
+	var verbal_shell = ""
+	if current_sequence.size() <= 2:
+		verbal_shell = ""
+	else:
+		var randindex = randi_range(2, current_sequence.size() - 1)
+		verbal_shell = current_sequence[randindex]
+	return verbal_shell
+
 func FreeLookCameraForAllUsers_Enable():
 	for property in instance_handler.instance_property_array:
 		property.is_allowed_to_free_look = true
@@ -401,6 +428,14 @@ func GetPropertyInvalidItems(user_properties : MP_UserInstanceProperties):
 		array_to_return[8] = true
 	
 	return array_to_return
+
+func GetSocketID(socket_number : int):
+	var id = 0
+	for property in instance_handler.instance_property_array:
+		if property.socket_number == socket_number:
+			id = property.user_id
+			break
+	return id
 
 func CheckIfShooterEndingTurnAfterShot(active_shooter_socket_target : int, active_shooter_socket_self : int, active_shooter_shell : String, barrel_sawed_off : bool, active_shooter_sequence_length_after_eject : int):
 	if GetSocketProperties(active_shooter_socket_self).user_id in MAIN_active_user_id_exceeded_secondary_timeout_array:
@@ -536,6 +571,14 @@ func GetSocketProperties(socket_number : int):
 	for instance_property in instance_handler.instance_property_array:
 		if instance_property.socket_number == socket_number:
 			return instance_property
+
+func CheckIfPropertyHasItem(socket_number : int, item_id_to_check : int):
+	var has_item = false
+	for i in range(MAIN_inventory_by_socket[socket_number].size()):
+		if MAIN_inventory_by_socket[socket_number][i] != {}:
+			if MAIN_inventory_by_socket[socket_number][i].item_id == item_id_to_check:
+				has_item = true
+	return has_item
 
 func PrintInventory():
 	print("")

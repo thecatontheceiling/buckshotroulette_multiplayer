@@ -9,6 +9,20 @@ func _ready():
 	intermediary = get_node("/root/mp_main/standalone managers/interactions/interaction intermediary")
 	SetMainPermission(false)
 
+func SetMajorPermission(state : bool):
+	if !state:
+		if intermediary.intermed_activeParent != null:
+			for i in range(intermediary.intermed_activeParent.get_children().size()):
+				if intermediary.intermed_activeParent.get_children()[i] is MP_PickupIndicator:
+					intermediary.intermed_activeParent.get_children()[i].Revert()
+					properties.description.EndLerp()
+					properties.description.started = false
+		properties.major_permission_enabled = state
+		cursor.SetCursor(false, false)
+	else:
+		properties.major_permission_enabled = true
+		cursor.SetCursor(GlobalVariables.cursor_state_after_toggle, false)
+
 func SetMainPermission(state : bool):
 	SetPermission_Shotgun(state)
 	SetItemPermissions(state)

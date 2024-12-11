@@ -20,7 +20,9 @@ class_name MP_UserInstanceProperties extends Node
 @export var is_viewing_jammer : bool
 @export var is_holding_shotgun : bool
 @export var is_being_revived : bool
+@export var is_shooting : bool
 @export var is_allowed_to_free_look : bool = false
+@export var has_turn = false
 @export var user_inventory : Array[Dictionary] = [{},{},{},{},{},{},{},{}]
 @export var user_inventory_instance_array : Array[Node3D] = [null,null,null,null,null,null,null,null]
 @export var user_inventory_count_by_item_id : Array[int]
@@ -88,6 +90,7 @@ var lerp_bus_music_end_linear = 0
 var original_volume_linear_interaction = 0
 var original_volume_linear_music = 0
 var running_fast_revival = false
+var major_permission_enabled = true
 
 var stat_damage_dealt : int
 var stat_number_of_deaths : int
@@ -298,6 +301,29 @@ func GetSocketProperties(socket_number : int):
 			return instance_property
 	return null
 
+func ResetLastAliveProperty():
+	permissions.SetMajorPermission(false)
+	permissions.SetMainPermission(false)
+	SetTurnControllerPrompts(false)
+	SetAdrenalineControllerPrompts(false)
+	shotgun.SetTargetControllerPrompts(false)
+	jammer_manager.SetJammerControllerPrompts(false)
+	await get_tree().create_timer(3.8, false).timeout
+	if is_grabbing_items:
+		item_manager.EndItemGrabbingDefault()
+	if is_stealing_item:
+		cam.BeginLerp("home")
+		SetAdrenalineControllerPrompts(false)
+		permissions.SetMainPermission(false)
+		is_stealing_item = false
+		is_on_secondary_interaction = false
+	if is_holding_shotgun:
+		cam.BeginLerp("home")
+		shotgun.DropShotgun()
+	if is_viewing_jammer:
+		item_interaction.ReturnJammerAfterTimeout()
+		is_on_secondary_interaction = false
+
 func ReceivePacket_TimeoutExceeded(packet : Dictionary):
 	print("timeout exceeded with packet: ", packet)
 	
@@ -311,6 +337,7 @@ func ReceivePacket_TimeoutExceeded(packet : Dictionary):
 				if socket_number == packet.socket_number:
 					cam.BeginLerp("home")
 					permissions.SetMainPermission(true)
+					SetAdrenalineControllerPrompts(false)
 					SetTurnControllerPrompts(true)
 					is_stealing_item = false
 					is_on_secondary_interaction = false

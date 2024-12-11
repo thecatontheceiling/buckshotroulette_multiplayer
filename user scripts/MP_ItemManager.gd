@@ -76,7 +76,7 @@ func _unhandled_input(event):
 				PlaceItemRequest(debug_grid_index)
 		if event.is_action_pressed("debug_pgdn") && properties.is_active:
 			properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = ["live", "live", "live", "live", "live", "live", "live", "live", ]
-			#properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = ["live", "live"]
+			properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = ["live", "live"]
 			if properties.intermediary.game_state.MAIN_active_sequence_dict != null:
 				if properties.intermediary.game_state.MAIN_active_sequence_dict.has("sequence_in_shotgun"):
 					print ("sequence in shotgun: ", properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun)
@@ -93,7 +93,8 @@ func BeginItemGrabbing():
 	properties.is_grabbing_items = true
 	debug_grid_index = -1
 	if !properties.running_fast_revival:
-		await get_tree().create_timer(1.3, false).timeout
+		#await get_tree().create_timer(1.3, false).timeout
+		pass
 	#if properties.death.user_reviving: await get_tree().create_timer(2.72, false).timeout
 	properties.num_of_items_currently_grabbed = 0
 	if properties.is_active:
@@ -140,6 +141,13 @@ func ReturnItemToBriefcase():
 	active_separate_lerp.StartLerp(active_instance.transform.origin, active_res.pos_in_briefcase_local, active_instance.rotation_degrees, active_res.rot_in_briefcase_local)
 	await get_tree().create_timer(.4, false).timeout
 	active_instance.queue_free()
+
+func EndItemGrabbingDefault():
+	properties.is_grabbing_items = false
+	if properties.is_active:
+		EndItemGrabbing()
+	else:
+		properties.hands.Hands_ReturnBriefcase()
 
 func EndItemGrabbingAfterTimeout():
 	properties.is_grabbing_items = false

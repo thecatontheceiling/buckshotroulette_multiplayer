@@ -28,8 +28,8 @@ func _unhandled_input(event):
 				var packet = {
 				"packet category": "MP_PacketVerification",
 				"packet alias": "interact with item request",
-				"packet_id": 22,
 				"sent_from": "client",
+				"packet_id": 22,
 				"item_socket_number": 2,
 				"local_grid_index": 0,
 				"item_id": 2,
@@ -37,6 +37,20 @@ func _unhandled_input(event):
 				"sent_from_socket": 1,
 				}
 				properties.intermediary.packets.PipeData(packet)
+		if event.is_action_pressed("3"):
+			if properties.is_active:
+				properties.intermediary.game_state.CheckIfPropertyHasItem(0, 2)
+			return
+			if properties.socket_number == 1:
+				var packet = {
+				"packet category": "MP_PacketVerification",
+				"packet alias": "pickup shotgun request",
+				"sent_from": "client",
+				"packet_id": 10,
+				"sent_from_socket": properties.socket_number,
+				}
+				properties.intermediary.packets.send_p2p_packet_directly_to_host(GlobalSteam.STEAM_ID, packet)
+				if GlobalVariables.mp_debugging: properties.intermediary.packets.PipeData(packet)
 
 func InteractWithItemRequest(item_object_parent : Node3D, stealing_item : bool = false):
 	properties.permissions.SetMainPermission(false)
@@ -44,8 +58,8 @@ func InteractWithItemRequest(item_object_parent : Node3D, stealing_item : bool =
 	var packet = {
 	"packet category": "MP_PacketVerification",
 	"packet alias": "interact with item request",
-	"packet_id": 22,
 	"sent_from": "client",
+	"packet_id": 22,
 	"item_socket_number": active_interaction_branch.socket_number,
 	"local_grid_index": active_interaction_branch.local_grid_index,
 	"item_id": active_id,
@@ -66,8 +80,8 @@ func InteractWIthItemRequest_Secondary(secondary_interaction_dictionary : Dictio
 	var packet = {
 	"packet category": "MP_PacketVerification",
 	"packet alias": "secondary item interaction request",
-	"packet_id": 24,
 	"sent_from": "client",
+	"packet_id": 24,
 	"sent_from_socket": properties.socket_number,
 	"item_id": secondary_interaction_dictionary.item_id,
 	"has_exit_animation": false,
@@ -86,6 +100,12 @@ func InteractWIthItemRequest_Secondary(secondary_interaction_dictionary : Dictio
 
 func ReceivePacket_InteractWithItem(packet : Dictionary):
 	if packet.socket_number == properties.socket_number:
+		properties.has_turn = false
+		if packet.item_id == 8 or packet.item_id == 3:
+			properties.has_turn = true
+		properties.intermediary.game_state.MAIN_phone_verbal_shell = packet.phone_verbal_shell
+		properties.intermediary.game_state.MAIN_phone_verbal_index = packet.phone_verbal_index
+		properties.intermediary.game_state.MAIN_shell_to_eject = packet.current_shell_in_chamber
 		properties.is_interacting_with_item = true
 		if packet.stealing_item:
 			properties.intermediary.game_state.StopTimeoutForSocket("adrenaline", properties.socket_number)
@@ -96,6 +116,7 @@ func ReceivePacket_InteractWithItem(packet : Dictionary):
 
 func ReceivePacket_InteractWithItem_Secondary(packet : Dictionary):
 	if packet.socket_number == properties.socket_number:
+		properties.has_turn = false
 		if packet.item_id == 3:
 			properties.intermediary.game_state.StopTimeoutForSocket("jammer", properties.socket_number)
 		if properties.is_active: 
@@ -276,10 +297,12 @@ func EndItemInteraction(with_packet : Dictionary):
 		properties.is_on_secondary_interaction = false
 	properties.is_interacting_with_item = false
 	if with_packet.ending_turn_after_item_use:
-		var shotgun_empty = properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun.size() == 0
-		var passing_turn_to_next_player = true
-		properties.intermediary.roundManager.UserEndTurn_Packet(properties.socket_number, passing_turn_to_next_player, shotgun_empty, -1)
+		if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+			var shotgun_empty = properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun.size() == 0
+			var passing_turn_to_next_player = true
+			properties.intermediary.roundManager.UserEndTurn_Packet(properties.socket_number, passing_turn_to_next_player, shotgun_empty, -1)
 		return
+	properties.has_turn = true
 	if properties.is_active:
 		properties.permissions.SetMainPermission(true)
 		properties.SetTurnControllerPrompts(true)
@@ -328,9 +351,10 @@ func ChangeGameStateWithItem(item_id : int, packet : Dictionary = {}):
 				if property.socket_number != properties.socket_number:
 					property.cam.BeginLerp("home", true)
 		9:	#inverter
-			var shell_in_chamber = properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0]
-			if shell_in_chamber == "live": properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0] = "blank"
-			else: properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0] = "live"
+			if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+				var shell_in_chamber = properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0]
+				if shell_in_chamber == "live": properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0] = "blank"
+				else: properties.intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun[0] = "live"
 		10:	#indicator remote
 			properties.intermediary.game_state.turn_order.FlipTurnOrder()
 

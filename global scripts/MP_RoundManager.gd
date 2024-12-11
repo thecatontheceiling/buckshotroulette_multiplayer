@@ -66,7 +66,8 @@ func PacketSort(dict : Dictionary):
 			BeginItemGrabbingForSockets(dict.sockets_to_begin_item_grabbing_on)
 		"load shotgun routine":
 			game_state.FreeLookCameraForAllUsers_Disable()
-			game_state.MAIN_active_sequence_dict = dict.sequence_dictionary
+			if GlobalSteam.STEAM_ID != GlobalSteam.HOST_ID:
+				game_state.MAIN_active_sequence_dict = dict.sequence_dictionary
 			game_state.MAIN_active_first_turn_socket = dict.first_turn_socket
 			for property in instance_handler.instance_property_array: property.running_fast_revival = false
 			LoadShotgun()
@@ -100,6 +101,7 @@ func MainRoutine_StartRound():
 	var packet = {
 	"packet category": "MP_RoundManager",
 	"packet alias": "first round routine",
+	"sent_from": "host",
 	"packet_id": 7,
 	"round_dictionary": game_state.MAIN_active_round_dict,
 	"first_turn_socket": game_state.MAIN_active_first_turn_socket,
@@ -165,8 +167,9 @@ func MainRoutine_LoadShotgun():
 	var packet = {
 		"packet category": "MP_RoundManager",
 		"packet alias": "load shotgun routine",
+		"sent_from": "host",
 		"packet_id": 8,
-		"sequence_dictionary": game_state.MAIN_active_sequence_dict,
+		"sequence_dictionary": game_state.MAIN_active_sequence_dict_send,
 		"first_turn_socket": game_state.MAIN_active_first_turn_socket,
 	}
 	packets.send_p2p_packet(0, packet)
@@ -176,6 +179,7 @@ func MainRoutine_PassTurn(socket_to_pass_turn_to : int):
 	var packet = {
 		"packet category": "MP_RoundManager",
 		"packet alias": "pass turn",
+		"sent_from": "host",
 		"packet_id": 9,
 		"socket_to_pass_turn_to": socket_to_pass_turn_to,
 	}
@@ -188,8 +192,8 @@ func UserEndTurn_Packet(from_socket : int = 0, passing_next_turn : bool = false,
 		var packet = {
 			"packet category": "MP_RoundManager",
 			"packet alias": "end turn",
-			"packet_id": 14,
 			"sent_from": "host",
+			"packet_id": 14,
 			"from_socket": from_socket,
 			"passing_next_turn": passing_next_turn,
 			"next_turn_socket": GetNextTurn_Socket(from_socket),
@@ -210,6 +214,7 @@ func MainRoutine_UserEndTurn(packet_dictionary : Dictionary = {}):
 	
 	if packet_dictionary.user_won_game_at_socket != -1:
 		print("user has won game. doing win shit & returning at mainroutine_userendturn")
+		game_state.MAIN_running_win_routine = true
 		win_manager.WinRoutine(packet_dictionary.user_won_game_at_socket)
 		return
 	if packet_dictionary.passing_next_turn: game_state.MAIN_active_first_turn_socket = packet_dictionary.next_turn_socket
@@ -357,10 +362,12 @@ func PassTurn(to_socket : int):
 			print(active_properties.user_name, " jam is checked - disabling jammer and granting perms")
 			active_properties.jammer_manager.Jammer_Disable()
 			GiveTurnPermissions(active_properties)
+			active_properties.has_turn = true
 			game_state.BeginTimeoutForSocket("turn", game_state.MAIN_timeout_duration_turn, to_socket)
 	else:
 		print(active_properties.user_name, " is not jammed. granting perms")
 		GiveTurnPermissions(active_properties)
+		active_properties.has_turn = true
 		game_state.BeginTimeoutForSocket("turn", game_state.MAIN_timeout_duration_turn, to_socket)
 
 func GiveTurnPermissions(properties : MP_UserInstanceProperties):
@@ -506,11 +513,10 @@ func GenerateRandomSequence():
 		"sequence_in_shotgun": sequence_in_shotgun,
 		"shuffling_visible_sequence": shuffling_sequence,
 	}
+	var dict_send = dict.duplicate(true)
+	dict_send.erase("sequence_in_shotgun")
 	game_state.MAIN_active_sequence_dict = dict
-	print("ACTIVE SEQUENCE DICTIONARY:")
-	print("sequence_visible: ", game_state.MAIN_active_sequence_dict.sequence_visible)
-	print("sequence in shotgun: hidden")
-	print("-----------------------------------------------------------------")
+	game_state.MAIN_active_sequence_dict_send = dict_send
 
 func GetSelectedSequenceCopy(for_user_amount : int):
 	var selected

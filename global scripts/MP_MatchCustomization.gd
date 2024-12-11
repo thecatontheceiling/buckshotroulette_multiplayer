@@ -482,8 +482,8 @@ func CheckMatchCustomizationDifferences():
 	var packet = {
 		"packet category": "MP_LobbyManager",
 		"packet alias": "update match customization",
-		"packet_id": 34,
 		"sent_from": "host",
+		"packet_id": 34,
 		"skipping_intro": skipping_intro,
 		"number_of_rounds": number_of_rounds,
 		"item_distribution_changed": item_distribution_changed,

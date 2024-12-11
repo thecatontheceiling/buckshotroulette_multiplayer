@@ -86,6 +86,7 @@ func CheckLobbyMemberArray():
 
 func RemoveInstancesFromGame(instances_to_delete_array : Array):
 	if !removing_instances: return
+	var socket_turn_to_check = 0
 	if instances_to_delete.size() == 0: print("instances to delete array is empty. returning"); return
 	print("removing instances from game with array: ", instances_to_delete_array)
 	for instance in instance_property_array:
@@ -100,27 +101,60 @@ func RemoveInstancesFromGame(instances_to_delete_array : Array):
 					return
 				instance.TransferInventoryToGlobalParent()
 				debug.SendConsoleMessage(tr("MP_UI PLAYER DISCONNECTED") % instance.user_name)
-				CheckToPassTurnAfterUserDisconnect(instance.socket_number)
+				socket_turn_to_check = instance.socket_number
 				instance_property_array.erase(instance)
 				instance.instance_root.queue_free()
+	var num_of_alive_users = 0
+	var alive_socket = -1
 	for property in instance_property_array:
-		if property.is_viewing_jammer:
-			property.jammer_manager.SetValidTargets()
-			property.jammer_manager.Reset()
-			if !intermediary.game_state.CheckIfJammerHasEligibleTargets(property):
-				property.item_interaction.RevertJammer()
+		if property.health_current != 0:
+			num_of_alive_users += 1
+			alive_socket = property.socket_number
+	
+	if intermediary.game_state.MAIN_running_win_routine:
+		print("a user has disconnected, and there are not enough players behind the table to continue. the win routine is already running. returning")
+		return
+	if num_of_alive_users != 1:
+		CheckToPassTurnAfterUserDisconnect(socket_turn_to_check)
+	
+	if num_of_alive_users != 1:
+		for property in instance_property_array:
+			if property.is_viewing_jammer:
+				property.jammer_manager.SetValidTargets()
+				property.jammer_manager.Reset()
+				if !intermediary.game_state.CheckIfJammerHasEligibleTargets(property):
+					property.item_interaction.RevertJammer()
 	if instance_property_array.size() == 1:
 		intermediary.ExitGame(tr("MP_CONSOLE EXIT NOT ENOUGH PLAYERS"))
-	print("globalparent visible: ", intermediary.globalparent_shotgun.visible)
+	
 	if !intermediary.globalparent_shotgun_main.visible:
 		intermediary.SetShotgunVisible_Global(true)
-	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+	
+	if (GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID) && num_of_alive_users != 1:
 		if intermediary.game_state.MAIN_item_grabbing_in_progress:
 			intermediary.game_state.CheckIfItemGrabbingFinishedForAllUsers()
+		
+	if num_of_alive_users == 1:
+		var winning_socket = -1
+		intermediary.intermed_properties.shotgun.CheckIfFinalShot_OnLastDisconnect()
+		for property in instance_property_array:
+			if property.socket_number == alive_socket:
+				property.ResetLastAliveProperty()
+				winning_socket = property.socket_number
+				break
+		await get_tree().create_timer(3.8, false).timeout
+		if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+			print("a user disconnected, and there are not enough players behind the table to continue. attempting to run win routine for the remaining player")
+			if !intermediary.game_state.MAIN_running_win_routine:
+				print("running win routine for remaining player after last disconnect")
+				intermediary.game_state.round_manager.UserEndTurn_Packet(0, true, true, winning_socket)
+			else:
+				print("win routine already running after last disconnect")
+		intermediary.intermed_properties.permissions.SetMajorPermission(true)
 
 func CheckToPassTurnAfterUserDisconnect(socket_number_that_disconnected : int):
 	if GlobalSteam.STEAM_ID != GlobalSteam.HOST_ID: return
-	if (socket_number_that_disconnected == intermediary.game_state.MAIN_active_current_turn_socket) && !intermediary.game_state.MAIN_shotgun_loading_in_progress:
+	if (socket_number_that_disconnected == intermediary.game_state.MAIN_active_current_turn_socket) && !intermediary.game_state.MAIN_shotgun_loading_in_progress && !intermediary.game_state.MAIN_running_win_routine:
 		print("the active turn user has disconnected. passing turn to next user ...")
 		await get_tree().create_timer(1, false).timeout
 		round.MainRoutine_PassTurn(round.GetNextTurn_Socket(round.game_state.MAIN_active_current_turn_socket))
@@ -163,6 +197,7 @@ func InitialInstanceSetup_Host():
 	var packet = {
 		"packet category": "MP_UserInstanceHandler",
 		"packet alias": "initial instance setup",
+		"sent_from": "host",
 		"packet_id": 6,
 		"instance_dict": instance_dictionary,
 		"environmental_event": GetEnvironmentalEvent()

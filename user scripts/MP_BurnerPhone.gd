@@ -7,21 +7,18 @@ func _ready():
 	game_state = properties.intermediary.game_state
 
 func ShowBurnerPhoneDialogue():
-	properties.dialogue.ShowText_Forever(GetBurnerPhoneString())
+	properties.dialogue.ShowText_Forever(GetBurnerPhoneString(game_state.MAIN_phone_verbal_index, game_state.MAIN_phone_verbal_shell))
 
 func HideBurnerPhoneDialogue():
 	properties.dialogue.HideText()
 
-func GetBurnerPhoneString():
-	var current_sequence = game_state.MAIN_active_sequence_dict.sequence_in_shotgun
+func GetBurnerPhoneString(verbal_index : int, verbal_shell : String):
 	var final_string_p1 = "" #ex: THIRD SHELL ...
 	var final_string_p2 = "" #ex: ... BLANK.
 	var final_string = ""    #ex: FIRST SHELL ... (line break) ... BLANK.
-	if current_sequence.size() <= 2: final_string = tr("UNFORTUNATE")
+	if verbal_index == -1 or verbal_shell == "":
+		final_string = tr("UNFORTUNATE")
 	else:
-		var randindex = randi_range(2, current_sequence.size() - 1)
-		var verbal_index = randindex; verbal_index += 1
-		var verbal_shell = current_sequence[randindex]
 		if verbal_index > 7: verbal_index = 7
 		match verbal_index:
 			3: final_string_p1 = tr("SEQUENCE3")

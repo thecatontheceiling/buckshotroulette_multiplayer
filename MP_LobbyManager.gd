@@ -13,6 +13,7 @@ enum search_distance {Close, Default, Far, Worldwide}
 @export var menu_manager : MenuManager
 @export var command_line : MP_CommandLineChecker
 @export var match_customization : MP_MatchCustomization
+@export var matchmaking : MP_Matchmaking
 
 @export var cursor : MP_CursorManager
 @export var instance_handler : MP_UserInstanceHandler
@@ -60,6 +61,7 @@ func ShowForwardedMessage():
 		Console(GlobalVariables.message_to_forward)
 		GlobalVariables.message_to_forward = ""
 
+var interaction_enabled = true
 func Pipe(alias : String = "", sub_alias : String = ""):
 	match alias:
 		"create lobby":
@@ -90,6 +92,20 @@ func Pipe(alias : String = "", sub_alias : String = ""):
 			lobby_ui.OpenDiscordLink()
 		"customize match settings":
 			lobby_ui.EnterMatchCustomization()
+		"search for lobbies":
+			lobby_ui.EnterLobbySearch()
+		"friends only toggle":
+			ToggleLobbyFriendsOnly()
+		"player limit toggle":
+			TogglePlayerLimit()
+		"exit lobby search":
+			lobby_ui.ExitLobbySearch()
+		"toggle search range":
+			matchmaking.ToggleSearchRange()
+		"refresh search list":
+			matchmaking.RefreshList()
+		"lobby result join":
+			matchmaking.JoinLobbyFromSearch(int(sub_alias))
 
 func KickPlayerInLobby(steam_id : int):
 	print("attempting to kick player: ", steam_id)
@@ -126,13 +142,36 @@ func Console_Copypaste(message : String):
 	animator_consolepop_copypaste_ui.play("RESET")
 	animator_consolepop_copypaste_ui.play("pop")
 
+func ToggleLobbyFriendsOnly():
+	if GlobalSteam.LOBBY_ID != 0 && GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		GlobalSteam.is_lobby_friends_only = !GlobalSteam.is_lobby_friends_only
+		if GlobalSteam.is_lobby_friends_only:
+			Steam.setLobbyType(GlobalSteam.LOBBY_ID, Steam.LOBBY_TYPE_FRIENDS_ONLY)
+			Console_Copypaste(tr("MP_LOBBY SET PRIVATE"))
+		else:
+			Steam.setLobbyType(GlobalSteam.LOBBY_ID, Steam.LOBBY_TYPE_PUBLIC)
+			Console_Copypaste(tr("MP_LOBBY SET PUBLIC"))
+
+func TogglePlayerLimit():
+	if GlobalSteam.LOBBY_ID != 0 && GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		if GlobalSteam.lobby_player_limit == 4:
+			GlobalSteam.lobby_player_limit = 2
+		else:
+			GlobalSteam.lobby_player_limit += 1
+		Steam.setLobbyData(GlobalSteam.LOBBY_ID, "player_limit", str(GlobalSteam.lobby_player_limit))
+		Steam.setLobbyMemberLimit(GlobalSteam.LOBBY_ID, GlobalSteam.lobby_player_limit)
+
 func CreateLobby():
 	print("attempting to create lobby")
 	if (GlobalSteam.LOBBY_ID == 0):
-		Steam.createLobby(Steam.LOBBY_TYPE_FRIENDS_ONLY, 4)
+		GlobalSteam.is_lobby_friends_only = true
+		GlobalSteam.lobby_player_limit = 4
+		Steam.createLobby(Steam.LOBBY_TYPE_FRIENDS_ONLY, GlobalSteam.lobby_player_limit)
+		Steam.setLobbyData(GlobalSteam.LOBBY_ID, "player_limit", str(GlobalSteam.lobby_player_limit))
 
 func _on_lobby_created(connect: int, this_lobby_id: int) -> void:
 	if connect == 1:
+		GlobalSteam.is_lobby_friends_only = true
 		# Set the lobby ID
 		GlobalSteam.LOBBY_ID = this_lobby_id
 		GlobalVariables.steam_id_version_checked_array.append(GlobalSteam.STEAM_ID)
@@ -140,10 +179,6 @@ func _on_lobby_created(connect: int, this_lobby_id: int) -> void:
 
 		# Set this lobby as joinable, just in case, though this should be done by default
 		Steam.setLobbyJoinable(GlobalSteam.LOBBY_ID, true)
-
-		# Set some lobby data
-		Steam.setLobbyData(GlobalSteam.LOBBY_ID, "name", "Buckshot Test")
-		Steam.setLobbyData(GlobalSteam.LOBBY_ID, "mode", "Buckshot Test_")
 
 		# Allow P2P connections to fallback to being relayed through Steam if needed
 		var set_relay: bool = Steam.allowP2PPacketRelay(true)
@@ -178,6 +213,8 @@ func join_lobby(this_lobby_id: int) -> void:
 	Steam.joinLobby(this_lobby_id)
 
 func leave_lobby() -> void:
+	GlobalSteam.is_lobby_friends_only = true
+	GlobalSteam.lobby_player_limit = 4
 	GlobalVariables.previous_match_customization_differences = {}
 	GlobalVariables.lobby_id_found_in_command_line = 0
 	# If in a lobby, leave it
@@ -248,6 +285,7 @@ func _on_lobby_joined(this_lobby_id: int, _permissions: int, _locked: bool, resp
 			Steam.CHAT_ROOM_ENTER_RESPONSE_LIMITED: fail_reason = tr("MP_UI LOBBY LIMITED")
 			Steam.CHAT_ROOM_ENTER_RESPONSE_MEMBER_BLOCKED_YOU: fail_reason = tr("MP_UI LOBBY BLOCKED YOU")
 			Steam.CHAT_ROOM_ENTER_RESPONSE_YOU_BLOCKED_MEMBER: fail_reason = tr("MP_UI LOBBY BLOCKED MEMBER")
+			Steam.CHAT_ROOM_ENTER_RESPONSE_NOT_ALLOWED: fail_reason = tr("#MP_ERROR GAME STARTED")
 			_: fail_reason = tr("MP_UI LOBBY FAIL GENERIC")
 		
 		print("Failed to join this chat room: %s" % p_fail_reason)
@@ -339,10 +377,15 @@ func get_lobby_members() -> void:
 	GlobalSteam.HOST_ID = Steam.getLobbyOwner(GlobalSteam.LOBBY_ID)
 	
 	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		Steam.setLobbyData(GlobalSteam.LOBBY_ID, "member_count", str(GlobalSteam.LOBBY_MEMBERS.size()))
 		if !(GlobalSteam.HOST_ID in GlobalVariables.steam_id_version_checked_array):
-			GlobalVariables.steam_id_version_checked_array.append(GlobalSteam.HOST_ID)
+			GlobalVariables.steam_id_version_checked_ayeahrray.append(GlobalSteam.HOST_ID)
 
 	if (previous_host != GlobalSteam.HOST_ID) && (GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID):
+		if match_customization != null:
+			GlobalSteam.lobby_player_limit = 4
+			Steam.setLobbyMemberLimit(GlobalSteam.LOBBY_ID, GlobalSteam.lobby_player_limit)
+			Steam.setLobbyData(GlobalSteam.LOBBY_ID, "player_limit", str(GlobalSteam.lobby_player_limit))
 		if match_customization != null:
 			match_customization.CheckMatchCustomizationDifferences()
 	previous_host = GlobalSteam.HOST_ID
@@ -395,8 +438,8 @@ func ReceivePacket_VersionCheck(packet : Dictionary, user_id : int):
 		var response = {
 			"packet category": "MP_LobbyManager",
 			"packet alias": "version response",
-			"packet_id": 33,
 			"sent_from": "host",
+			"packet_id": 33,
 			"entry_allowed": allowed,
 			"host_version": GlobalVariables.version_to_check,
 		}

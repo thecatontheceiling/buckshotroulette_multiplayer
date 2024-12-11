@@ -23,6 +23,7 @@ func InitialCheck():
 		var packet = {
 			"packet category": "lobby",
 			"packet alias": "host arrived in main scene",
+			"sent_from": "host",
 			"packet_id": 3,
 		}
 		packets.send_p2p_packet(0, packet)
@@ -31,6 +32,7 @@ func InitialCheck():
 		var packet = {
 			"packet category": "lobby",
 			"packet alias": "member joined list",
+			"sent_from": "client",
 			"packet_id": 4,
 			"steam_id": GlobalSteam.STEAM_ID,
 		}
@@ -47,6 +49,7 @@ func _process(delta):
 			var packet = {
 				"packet category": "lobby",
 				"packet alias": "all members arrived",
+				"sent_from": "host",
 				"packet_id": 5,
 			}
 			packets.send_p2p_packet(0, packet)

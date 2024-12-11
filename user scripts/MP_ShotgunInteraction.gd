@@ -91,8 +91,8 @@ func _unhandled_input(event):
 			var packet = {
 			"packet category": "MP_PacketVerification",
 			"packet alias": "pickup shotgun request",
-			"packet_id": 10,
 			"sent_from": "client",
+			"packet_id": 10,
 			"sent_from_socket": properties.socket_number,
 			}
 			intermediary.packets.PipeData(packet)
@@ -111,14 +111,15 @@ func PickupShotgun():
 	var packet = {
 	"packet category": "MP_PacketVerification",
 	"packet alias": "pickup shotgun request",
-	"packet_id": 10,
 	"sent_from": "client",
+	"packet_id": 10,
 	"sent_from_socket": properties.socket_number,
 	}
 	intermediary.packets.send_p2p_packet_directly_to_host(GlobalSteam.STEAM_ID, packet)
 	if GlobalVariables.mp_debugging: intermediary.packets.PipeData(packet)
 
 func DropShotgun():
+	properties.is_holding_shotgun = false
 	if properties.is_active:
 		animator_shotgun.play("drop shotgun")
 		PlaySound_ShotgunFoley(true, "drop")
@@ -194,8 +195,8 @@ func Shoot(hoverpan_intbranch : MP_InteractionBranch, overriding_intbranch_with_
 	var packet = {
 	"packet category": "MP_PacketVerification",
 	"packet alias": "shoot user request",
-	"packet_id": 12,
 	"sent_from": "client",
+	"packet_id": 12,
 	"sent_from_socket": self_socket,
 	"socket_to_shoot": selected_socket,
 	}
@@ -210,8 +211,11 @@ func Shoot(hoverpan_intbranch : MP_InteractionBranch, overriding_intbranch_with_
 	SetTargetControllerPrompts(false)
 
 func ReceivePacket_Shoot(packet_dictionary : Dictionary = {}):
-	intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun = packet_dictionary.sequence_in_shotgun
+	intermediary.game_state.MAIN_shooter_shell = packet_dictionary.shooter_shell
+	intermediary.game_state.MAIN_sequence_length_on_outcome = packet_dictionary.shooter_sequence_length_after_eject + 1
+	intermediary.game_state.MAIN_shell_to_eject = packet_dictionary.shooter_shell
 	properties.is_on_secondary_interaction = false
+	properties.is_shooting = true
 	properties.intermediary.game_state.StopTimeoutForSocket("shotgun target selection", properties.socket_number)
 	active_shooter_socket_self = packet_dictionary.shooter_socket_self
 	active_shooter_socket_target = packet_dictionary.shooter_socket_target
@@ -225,6 +229,7 @@ func ReceivePacket_Shoot(packet_dictionary : Dictionary = {}):
 	
 	var sent_from = packet_dictionary.sent_from_socket
 	if sent_from == properties.socket_number:
+		properties.has_turn = false
 		if properties.is_active:
 			Shoot_FirstPerson(packet_dictionary)
 		else:
@@ -236,6 +241,7 @@ func Shoot_FirstPerson(packet_dictionary : Dictionary = {}):
 	var time = 3.6
 	cam.moving = false
 	await get_tree().create_timer(time, false).timeout
+	properties.is_holding_shotgun = false
 	SetShotgunVisible_Global(true)
 	SetShotgunVisible_Local(false)
 	await get_tree().create_timer(.2, false).timeout
@@ -250,6 +256,7 @@ func Shoot_ThirdPerson(packet_dictionary : Dictionary = {}):
 	await get_tree().create_timer(1.9, false).timeout
 	ReturnFromLookAtShooting()
 	await get_tree().create_timer(1.65, false).timeout
+	properties.is_holding_shotgun = false
 	SetShotgunVisible_Global(true)
 	SetShotgunVisible_Local(false)
 	CheckIfEndingTurn(packet_dictionary)
@@ -361,6 +368,7 @@ func CheckIfEndingTurn(packet_dictionary : Dictionary):
 		cursor.SetCursor(true, true)
 		properties.permissions.SetMainPermission(true)
 		properties.SetTurnControllerPrompts(true)
+		properties.has_turn = true
 		#intbranch_shotgun.interactionAllowed = true
 		#properties.permissions.SetItemPermissions(true)
 	else:
@@ -370,9 +378,8 @@ func CheckIfEndingTurn(packet_dictionary : Dictionary):
 
 func ShootingOutcome():
 	await get_tree().create_timer(.1, false).timeout
-	var sequence = intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun
-	var current_shell = sequence[0]
-	if sequence.size() == 1: for property in intermediary.instance_handler.instance_property_array: property.running_fast_revival = true
+	var current_shell = intermediary.game_state.MAIN_shooter_shell
+	if intermediary.game_state.MAIN_sequence_length_on_outcome == 1: for property in intermediary.instance_handler.instance_property_array: property.running_fast_revival = true
 	
 	if current_shell == "live":
 		PlaySound_LiveFire()
@@ -441,6 +448,16 @@ func CheckIfFinalShot():
 			if intermediary.game_state.MAIN_active_environmental_event == "ice machine":
 				intermediary.environmental_event.StopIceMachine()
 
+func CheckIfFinalShot_OnLastDisconnect():
+	print("checking if final shot on last disconnect")
+	intermediary.music_manager.EndTrack_FadeOut()
+	if GlobalVariables.debug_round_index_to_end_game_at == intermediary.game_state.MAIN_active_round_index:
+		print("final shot on last round. fade in outro track and cut ambience")
+		intermediary.music_manager.FadeInOutroTrack()
+		intermediary.music_manager.StopSpeakersAfterFinalShot()
+		if intermediary.game_state.MAIN_active_environmental_event == "ice machine":
+			intermediary.environmental_event.StopIceMachine()
+
 func PlaySound_BlankFire():
 	var rand = randi_range(0, sounds_blank.size() - 1)
 	speaker_blank.stream = sounds_blank[rand]
@@ -465,9 +482,9 @@ func FailsafeAfterSelfShot():
 	FadeInShotgun_Global()
 
 func RemoveFirstShellFromSequence():
-	var sequence = intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun
-	intermediary.game_state.MAIN_shell_visible_to_eject = sequence[0]
-	sequence.remove_at(0)
+	intermediary.game_state.MAIN_shell_visible_to_eject = intermediary.game_state.MAIN_shell_to_eject
+	if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+		intermediary.game_state.MAIN_active_sequence_dict.sequence_in_shotgun.remove_at(0)
 
 func ShotgunBarrel_Remove():
 	globalparent_shotgun_cut_segment.visible = false

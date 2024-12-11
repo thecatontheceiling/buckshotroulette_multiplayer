@@ -134,8 +134,12 @@ func PipeData(dict : Dictionary):
 			for instance in instance_handler.instance_property_array:
 				instance.PacketSort(dict)
 		"MP_PacketVerification":
-			verifier.VerifyPacket(dict)
-			verifier.PacketSort(dict)
+			var verified_packet = verifier.VerifyPacket(dict)
+			if verified_packet == {}:
+				print("verification: failed to verify client request packet: ", dict, " ignoring")
+			else:
+				print("verification: success on verify client request packet: ", dict, " sending")
+				verifier.PacketSort(dict)
 	match value_alias:
 		"handshake":
 			print("got handshake with dictionary: ", dict)

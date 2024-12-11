@@ -4,8 +4,10 @@ class_name MP_LobbyUI extends Node
 @export var cursor : MP_CursorManager
 @export var lobby : LobbyManager
 @export var match_customization : MP_MatchCustomization
+@export var matchmaking : MP_Matchmaking
 @export var ui_host : Array[Control]
 @export var ui_member : Array[Control]
+@export var cl_disable_on_steam_deck : Array[CanvasLayer]
 
 @export_group("lobby scene intermediary")
 @export var speaker_button_press : AudioStreamPlayer2D
@@ -34,6 +36,13 @@ class_name MP_LobbyUI extends Node
 @export var ui_label_popup : Label
 @export var ui_match_customization : Label
 @export var ui_match_customization_first_focus : Control
+@export var ui_search_for_lobbies : Control
+@export var ui_friends_only_toggle : Control
+@export var ui_friends_only_checkbox : Control
+@export var ui_player_limit : Control
+@export var ui_player_limit_label : Label
+@export var parent_lobby_search : Control
+@export var first_focus_lobby_search : Control
 
 @export var button_class_popup_close : Control
 @export var button_class_host : Control
@@ -62,6 +71,10 @@ class_name MP_LobbyUI extends Node
 @export var debug_timeouts_enabled : Control
 
 func _ready():
+	if Steam.isSteamRunningOnSteamDeck():
+		for cl in cl_disable_on_steam_deck:
+			cl.visible = false
+	
 	GlobalVariables.cursor_state_after_toggle = false
 	cursor.SetCursor(false, false)
 	UpdatePlayerList()
@@ -89,6 +102,8 @@ func _process(delta):
 	FailsafeFocusUI()
 	DebugLabel()
 	CheckLowerConsolePosition()
+	CheckSearchForLobbies()
+	CheckFriendsOnlyToggle()
 
 func DebugLabel():
 	debug_timeouts_enabled.visible = GlobalVariables.timeouts_enabled
@@ -101,6 +116,20 @@ func CheckLowerConsolePosition():
 			ui_label_lobby_id_console.position = pos_lobby_id_console_client
 	else:
 		ui_label_lobby_id_console.position = pos_lobby_id_console_client
+
+func CheckSearchForLobbies():
+	ui_search_for_lobbies.visible = GlobalSteam.LOBBY_ID == 0
+
+func CheckFriendsOnlyToggle():
+	if GlobalSteam.LOBBY_ID != 0:
+		ui_friends_only_toggle.visible = GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID
+		ui_player_limit.visible = GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID
+		if GlobalSteam.STEAM_ID == GlobalSteam.HOST_ID:
+			ui_player_limit_label.text = "PLAYER LIMIT: %s" % str(GlobalSteam.lobby_player_limit)
+		ui_friends_only_checkbox.visible = GlobalSteam.is_lobby_friends_only
+	else:
+		ui_friends_only_toggle.visible = false
+		ui_player_limit.visible = false
 
 func GetFirstUIFocus():
 	var first_focus : Control
@@ -126,6 +155,21 @@ func EnterMatchCustomization():
 	if GlobalVariables.controllerEnabled or cursor.controller_active:
 		ui_match_customization_first_focus.grab_focus()
 	cursor.controller.previousFocus = ui_match_customization_first_focus
+
+func EnterLobbySearch():
+	ui_parent_lobby_home.visible = false
+	parent_lobby_search.visible = true
+	if GlobalVariables.controllerEnabled or cursor.controller_active:
+		first_focus_lobby_search.grab_focus()
+	cursor.controller.previousFocus = first_focus_lobby_search
+	matchmaking.OnLobbySearchEnter()
+
+func ExitLobbySearch():
+	parent_lobby_search.visible = false
+	ui_parent_lobby_home.visible = true
+	if GlobalVariables.controllerEnabled or cursor.controller_active:
+		GetFirstUIFocus().grab_focus()
+	cursor.controller.previousFocus = GetFirstUIFocus()
 
 func ExitMatchCustomization():
 	ui_parent_match_customization.visible = false
@@ -184,6 +228,7 @@ func UpdatePlayerList():
 	fs = true
 
 func ShowPopupWindow(with_message : String):
+	await get_tree().create_timer(.1, false).timeout
 	lobby.viewing_popup = true
 	animator_popup.play("show")
 	ui_label_popup.text = with_message

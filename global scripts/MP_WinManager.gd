@@ -11,6 +11,7 @@ func _ready():
 	parent_lightshow.visible = false
 
 func WinRoutine(winning_socket_number : int = -1):
+	roundManager.game_state.MAIN_running_win_routine = true
 	var looping_back = true
 	print("running win routine with winning socket: ", winning_socket_number)
 	for i in instance_handler.instance_property_array:
@@ -53,6 +54,7 @@ func WinRoutine(winning_socket_number : int = -1):
 	await get_tree().create_timer(6.4, false).timeout
 	SetLightShow(false)
 	await get_tree().create_timer(.4, false).timeout
+	roundManager.game_state.MAIN_running_win_routine = false
 	if looping_back: roundManager.LoopBackAfterWinRoutine()
 
 func SetLightShowStatic(state : bool):

@@ -38,8 +38,8 @@ func CheckDirection():
 			var packet = {
 			"packet category": "MP_PacketVerification",
 			"packet alias": "look at user request",
-			"packet_id": 15,
 			"sent_from": "client",
+			"packet_id": 15,
 			"sent_from_socket": properties.socket_number,
 			"direction_to_look": direction,
 			}

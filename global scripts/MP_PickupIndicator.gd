@@ -37,7 +37,7 @@ func _process(delta):
 	if (lerpEnabled && lerping_on_hover): LerpMovement()
 
 func CheckIfActive():
-	if (interactionBranch.interactionAllowed && !interactionInvalid):
+	if ((interactionBranch.interactionAllowed && !interactionInvalid) or !intermediary.intermed_properties.major_permission_enabled):
 		if (intermediary.intermed_activeParent != null and intermediary.intermed_activeParent == collider):
 			if (!fs):
 				BeginPickup()
