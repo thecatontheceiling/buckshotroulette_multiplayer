@@ -19,7 +19,6 @@ func GetBurnerPhoneString(verbal_index : int, verbal_shell : String):
 	if verbal_index == -1 or verbal_shell == "":
 		final_string = tr("UNFORTUNATE")
 	else:
-		if verbal_index > 7: verbal_index = 7
 		match verbal_index:
 			3: final_string_p1 = tr("SEQUENCE3")
 			4: final_string_p1 = tr("SEQUENCE4")

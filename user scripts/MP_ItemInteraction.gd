@@ -37,20 +37,6 @@ func _unhandled_input(event):
 				"sent_from_socket": 1,
 				}
 				properties.intermediary.packets.PipeData(packet)
-		if event.is_action_pressed("3"):
-			if properties.is_active:
-				properties.intermediary.game_state.CheckIfPropertyHasItem(0, 2)
-			return
-			if properties.socket_number == 1:
-				var packet = {
-				"packet category": "MP_PacketVerification",
-				"packet alias": "pickup shotgun request",
-				"sent_from": "client",
-				"packet_id": 10,
-				"sent_from_socket": properties.socket_number,
-				}
-				properties.intermediary.packets.send_p2p_packet_directly_to_host(GlobalSteam.STEAM_ID, packet)
-				if GlobalVariables.mp_debugging: properties.intermediary.packets.PipeData(packet)
 
 func InteractWithItemRequest(item_object_parent : Node3D, stealing_item : bool = false):
 	properties.permissions.SetMainPermission(false)

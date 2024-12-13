@@ -94,13 +94,12 @@ func PacketSort(dict : Dictionary):
 			if item_to_grab == null: return
 			#debug here1
 			#var debug_properties = GetSocketProperties(dict.sent_from_socket)
-			#var temp = [3, 3, 2, 8, 5, 6, 8, 9]
-			#temp = [6, 8, 6, 8, 6, 6, 6, 6, 6]
-			#if dict.sent_from_socket != 0: temp = [2, 2, 2, 2, 2]
+			#var temp = [6, 6, 6, 6, 6, 6, 6, 6]
 			#debug_properties.debug_index += 1
 			#if debug_properties.debug_index == temp.size(): debug_properties.debug_index = 0
+			##if debug_properties.socket_number == 0:
 			#item_to_grab = temp[debug_properties.debug_index]
-			#debug here11
+			#debug here1
 			packet = {
 				"packet category": "MP_UserInstanceProperties",
 				"packet alias": "grab item",
@@ -144,8 +143,8 @@ func PacketSort(dict : Dictionary):
 			}
 			if dict.item_id == 6:
 				custom_target_packet = packet.duplicate(true)
-				custom_target_packet.phone_verbal_shell = game_state.GetBurnerPhone_Shell()
 				custom_target_packet.phone_verbal_index = game_state.GetBurnerPhone_VerbalIndex()
+				custom_target_packet.phone_verbal_shell = game_state._GetBurnerPhone_Shell(custom_target_packet.phone_verbal_index)
 				custom_target_id = game_state.GetSocketID(dict.sent_from_socket)
 		"secondary item interaction request":
 			packet = {

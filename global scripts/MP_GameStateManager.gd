@@ -372,17 +372,28 @@ func GetBurnerPhone_VerbalIndex():
 	else:
 		var randindex = randi_range(2, current_sequence.size() - 1)
 		verbal_index = randindex; verbal_index += 1
+	if verbal_index > 7: verbal_index = 7
 	return verbal_index
 
-func GetBurnerPhone_Shell():
+func _GetBurnerPhone_Shell(with_verbal_index : int):
 	var current_sequence = MAIN_active_sequence_dict.sequence_in_shotgun
 	var verbal_shell = ""
+	var check_index = with_verbal_index - 1
 	if current_sequence.size() <= 2:
 		verbal_shell = ""
 	else:
-		var randindex = randi_range(2, current_sequence.size() - 1)
-		verbal_shell = current_sequence[randindex]
+		verbal_shell = current_sequence[check_index]
 	return verbal_shell
+
+#func GetBurnerPhone_Shell():
+#	var current_sequence = MAIN_active_sequence_dict.sequence_in_shotgun
+#	var verbal_shell = ""
+#	if current_sequence.size() <= 2:
+#		verbal_shell = ""
+#	else:
+#		var randindex = randi_range(2, current_sequence.size() - 1)
+#		verbal_shell = current_sequence[randindex]
+#	return verbal_shell
 
 func FreeLookCameraForAllUsers_Enable():
 	for property in instance_handler.instance_property_array:
